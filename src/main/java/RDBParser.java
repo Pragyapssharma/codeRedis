@@ -35,7 +35,9 @@ public class RDBParser {
     }
 
     private static String readLengthEncodedString(DataInputStream in) throws IOException {
-        int len = in.readUnsignedByte();
+        int len = in.readUnsignedByte(); // Later, you may need to support multi-byte lengths
+        if (len < 0 || len > 512) throw new IOException("Invalid string length: " + len);
+
         byte[] bytes = new byte[len];
         in.readFully(bytes);
         return new String(bytes);

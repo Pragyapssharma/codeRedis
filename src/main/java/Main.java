@@ -42,6 +42,7 @@ public class Main {
                 System.out.println("Loaded RDB file: " + filePath);
             } catch (IOException e) {
                 System.out.println("Failed to read RDB: " + e.getMessage());
+                e.printStackTrace();
             }
         } else {
             System.out.println("No RDB file found, starting with empty DB");
