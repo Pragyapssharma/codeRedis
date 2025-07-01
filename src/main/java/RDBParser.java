@@ -23,9 +23,12 @@ public class RDBParser {
 //                ClientHandler.keyValueStore.put(key, new ClientHandler.KeyValue(value, 0));
                 ClientHandler.putKey(key, value);
             } else if (opcode == 0xFA) { // AUX field
-                    readLengthEncodedString(in); // key
-                    readLengthEncodedString(in); // value
+            	readLengthEncodedString(in); // key
+                readLengthEncodedString(in); // value
                     // Discard both—just metadata
+            } else if (opcode == 0xFB) { // RESIZEDB
+                readLength(in); // number of keys hint
+                readLength(in); // number of expires hint
             } else if (opcode == 0xFF) { // EOF
                 break;
             } else {
@@ -33,12 +36,28 @@ public class RDBParser {
             }
         }
     }
+    
+    private static long readLength(DataInputStream in) throws IOException {
+        int firstByte = in.readUnsignedByte();
+        int type = (firstByte & 0xC0) >> 6;
+
+        if (type == 0) {
+            return firstByte & 0x3F;
+        } else if (type == 1) {
+            int secondByte = in.readUnsignedByte();
+            return ((firstByte & 0x3F) << 8) | secondByte;
+        } else if (type == 2) {
+            return Integer.toUnsignedLong(in.readInt());
+        } else {
+            throw new IOException("Unsupported length encoding type");
+        }
+    }
 
     private static String readLengthEncodedString(DataInputStream in) throws IOException {
-        int len = in.readUnsignedByte(); // Later, you may need to support multi-byte lengths
-        if (len < 0 || len > 512) throw new IOException("Invalid string length: " + len);
+        long len = readLength(in);
+        if (len < 0 || len > 512 * 1024) throw new IOException("Invalid string length: " + len);
 
-        byte[] bytes = new byte[len];
+        byte[] bytes = new byte[(int) len];
         in.readFully(bytes);
         return new String(bytes);
     }
