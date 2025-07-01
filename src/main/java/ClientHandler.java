@@ -83,19 +83,23 @@ class ClientHandler extends Thread {
 
     private void handleSetCommand(BufferedReader in, OutputStream out) throws IOException {
         // Read the key and value for the SET command
-        String key = readArgument(in);
-        String value = readArgument(in);
+        String key = readArgument(in);  // The key
+        String value = readArgument(in);  // The value
 
         // Default expiration is 0 (no expiration)
         long expiryTimeMillis = 0;
 
-        // Check for the "PX" argument for expiration time
-        String nextArg = readArgument(in); // Might be "px"
+        // Check if the next argument is "PX" for expiration time
+        String nextArg = readArgument(in);  // Might be "px"
         if (nextArg != null && nextArg.equalsIgnoreCase("px")) {
-            expiryTimeMillis = Long.parseLong(readArgument(in)); // expiry in milliseconds
+            // If it is "px", read the expiration time in milliseconds
+            expiryTimeMillis = Long.parseLong(readArgument(in));  // expiry in milliseconds
+        } else {
+            // If there's no "px", we just reset the nextArg to null
+            nextArg = null;
         }
 
-        // Calculate expiration timestamp
+        // Calculate the expiration timestamp
         long expirationTimestamp = expiryTimeMillis > 0 ? System.currentTimeMillis() + expiryTimeMillis : 0;
 
         // Store the key-value pair with expiration
@@ -104,6 +108,7 @@ class ClientHandler extends Thread {
         // Respond with +OK for SET command
         out.write("+OK\r\n".getBytes());
     }
+
 
     private void handleGetCommand(BufferedReader in, OutputStream out) throws IOException {
         // Read the key for the GET command
