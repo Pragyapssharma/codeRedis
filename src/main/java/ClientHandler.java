@@ -91,14 +91,14 @@ class ClientHandler extends Thread {
         // Default expiration is 0 (no expiration)
         long expiryTimeMillis = 0;
 
-        // Check if the next argument is "px"
+        // Read the next argument to check if it's "px"
         String nextArg = readArgument(in); // Might be "px"
         
         if (nextArg != null && nextArg.equalsIgnoreCase("px")) {
             // If it is "px", read the expiration time in milliseconds
             expiryTimeMillis = Long.parseLong(readArgument(in));  // Expiry in milliseconds
         } else {
-            // If no "px" argument, just continue with key-value
+            // If no "px" argument, just return the key-value without expiration
             // We can ignore this extra argument for now (it will be null in case of no "px")
         }
 
