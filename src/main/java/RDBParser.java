@@ -22,6 +22,10 @@ public class RDBParser {
                 String value = readLengthEncodedString(in);
 //                ClientHandler.keyValueStore.put(key, new ClientHandler.KeyValue(value, 0));
                 ClientHandler.putKey(key, value);
+            } else if (opcode == 0xFA) { // AUX field
+                    readLengthEncodedString(in); // key
+                    readLengthEncodedString(in); // value
+                    // Discard both—just metadata
             } else if (opcode == 0xFF) { // EOF
                 break;
             } else {
