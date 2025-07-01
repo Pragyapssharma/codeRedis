@@ -50,6 +50,7 @@ public class RDBParser {
                 	} else {
                 	    ClientHandler.putKeyWithExpiry(key, value, 0);
                 	}
+                	break;
             }
         }
         
