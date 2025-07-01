@@ -4,6 +4,8 @@ import java.io.InputStream;
 
 public class RDBParser {
     public static void loadFromStream(InputStream stream) throws IOException {
+    	
+    	long expireAtMillis = 0;
         DataInputStream in = new DataInputStream(stream);
 
         // Read header: "REDIS" + version (magic 5 bytes + 4 version bytes)
@@ -16,12 +18,16 @@ public class RDBParser {
             if (opcode == 0xFE) { // SELECT DB opcode
                 in.readByte(); // skip DB ID
             } else if (opcode == 0xFD) { // EXPIRETIME_MS (ignore)
-                in.readLong(); // skip
+            	expireAtMillis = in.readLong();
+            } else if (opcode == 0xFC) { // EXPIRETIME (in seconds)
+                long seconds = in.readInt();
+                expireAtMillis = seconds * 1000;
             } else if (opcode == 0x00) { // String type
                 String key = readLengthEncodedString(in);
                 String value = readLengthEncodedString(in);
 //                ClientHandler.keyValueStore.put(key, new ClientHandler.KeyValue(value, 0));
-                ClientHandler.putKey(key, value);
+                ClientHandler.putKey(key, value, expireAtMillis);
+                expireAtMillis = 0;
             } else if (opcode == 0xFA) { // AUX field
             	readLengthEncodedString(in); // key
                 readLengthEncodedString(in); // value

@@ -16,8 +16,8 @@ class ClientHandler extends Thread {
         this.clientSocket = clientSocket;
     }
     
-    public static void putKey(String key, String value) {
-        keyValueStore.put(key, new KeyValue(value, 0));
+    public static void putKeyWithExpiry(String key, String value, long expirationUnixMs) {
+        keyValueStore.put(key, new KeyValue(value, expirationUnixMs));
     }
 
     @Override
