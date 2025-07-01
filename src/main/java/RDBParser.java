@@ -63,11 +63,36 @@ public class RDBParser {
     }
 
     private static String readLengthEncodedString(DataInputStream in) throws IOException {
-        long len = readLength(in);
-        if (len < 0 || len > 512 * 1024) throw new IOException("Invalid string length: " + len);
+        int firstByte = in.readUnsignedByte();
+        int type = (firstByte & 0xC0) >> 6;
 
-        byte[] bytes = new byte[(int) len];
-        in.readFully(bytes);
-        return new String(bytes);
+        if (type == 0) {
+            int len = firstByte & 0x3F;
+            byte[] bytes = new byte[len];
+            in.readFully(bytes);
+            return new String(bytes);
+        } else if (type == 1) {
+            int secondByte = in.readUnsignedByte();
+            int len = ((firstByte & 0x3F) << 8) | secondByte;
+            byte[] bytes = new byte[len];
+            in.readFully(bytes);
+            return new String(bytes);
+        } else if (type == 2) {
+            int len = in.readInt();
+            byte[] bytes = new byte[len];
+            in.readFully(bytes);
+            return new String(bytes);
+        } else if (type == 3) {
+            int encType = firstByte & 0x3F;
+            switch (encType) {
+                case 0: return String.valueOf(in.readByte());   // 8-bit int
+                case 1: return String.valueOf(in.readShort());  // 16-bit int
+                case 2: return String.valueOf(in.readInt());    // 32-bit int
+                default:
+                    throw new IOException("Unsupported encoded string type: " + encType);
+            }
+        } else {
+            throw new IOException("Invalid length prefix");
+        }
     }
 }
