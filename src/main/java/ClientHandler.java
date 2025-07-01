@@ -89,21 +89,25 @@ class ClientHandler extends Thread {
         params.add(readArgument(in));  // Key
         params.add(readArgument(in));  // Value
 
-        // Check for "PX" expiration argument
+        // Default expiration is 0 (no expiration)
+        long expiryTimeMillis = 0;
+
+        // Check if the next argument is "px"
         String nextArg = readArgument(in); // Might be "px"
-        params.add(nextArg);  // Store the "px" if present
-
+        
         if (nextArg != null && nextArg.equalsIgnoreCase("px")) {
-            // If "px" exists, get the expiration time
-            Long expiryTimeInMillis = Long.parseLong(readArgument(in));  // Expiration time in milliseconds
-            long expirationTimestamp = System.currentTimeMillis() + expiryTimeInMillis;
-
-            // Store the key-value pair with expiration
-            keyValueStore.put(params.get(0), new KeyValue(params.get(1), expirationTimestamp));
+            // If it is "px", read the expiration time in milliseconds
+            expiryTimeMillis = Long.parseLong(readArgument(in));  // Expiry in milliseconds
         } else {
-            // Store key-value pair without expiration
-            keyValueStore.put(params.get(0), new KeyValue(params.get(1), 0));
+            // If no "px" argument, we push it back to params list
+            params.add(nextArg);  // Non-"px" argument gets added back
         }
+
+        // Calculate the expiration timestamp (if expiration time is specified)
+        long expirationTimestamp = expiryTimeMillis > 0 ? System.currentTimeMillis() + expiryTimeMillis : 0;
+
+        // Store the key-value pair with expiration (if any)
+        keyValueStore.put(params.get(0), new KeyValue(params.get(1), expirationTimestamp));
 
         // Respond with +OK for SET command
         out.write("+OK\r\n".getBytes());
