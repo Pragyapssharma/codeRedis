@@ -23,35 +23,40 @@ class ClientHandler extends Thread {
             OutputStream out = clientSocket.getOutputStream()
         ) {
             String inputLine;
-            // Process multiple commands from the same connection
             while ((inputLine = in.readLine()) != null) {
                 System.out.println("Received: " + inputLine);
 
-                // Process the command based on the format
                 if (inputLine.startsWith("*")) {
-                    String command = readCommand(in);
+                    int argCount = Integer.parseInt(inputLine.substring(1));
+                    List<String> args = readArguments(in, argCount);
 
-                    switch (command.toUpperCase()) {
+                    if (args.isEmpty()) continue;
+
+                    String command = args.get(0).toUpperCase();
+                    switch (command) {
                         case "PING":
                             out.write("+PONG\r\n".getBytes());
                             break;
 
                         case "ECHO":
-                            String argument = readArgument(in);
-                            String echoResponse = "$" + argument.length() + "\r\n" + argument + "\r\n";
-                            out.write(echoResponse.getBytes());
+                            if (args.size() >= 2) {
+                                String echo = args.get(1);
+                                String response = "$" + echo.length() + "\r\n" + echo + "\r\n";
+                                out.write(response.getBytes());
+                            }
                             break;
 
                         case "SET":
-                            handleSetCommand(in, out);
+                            handleSet(args, out);
                             break;
 
                         case "GET":
-                            handleGetCommand(in, out);
+                            handleGet(args, out);
                             break;
 
                         default:
                             System.out.println("Unknown command: " + command);
+                            out.write(("-ERR unknown command\r\n").getBytes());
                             break;
                     }
                 } else {
@@ -71,66 +76,67 @@ class ClientHandler extends Thread {
         }
     }
 
-    // Helper function to read the command (e.g., "PING" or "ECHO")
-    private String readCommand(BufferedReader in) throws IOException {
-        in.readLine(); // Read the $<length> (length of the command)
-        return in.readLine().trim(); // Read the actual command (e.g., PING or ECHO)
+    private List<String> readArguments(BufferedReader in, int count) throws IOException {
+        List<String> args = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            String lenLine = in.readLine(); // e.g., $5
+            if (lenLine == null || !lenLine.startsWith("$")) {
+                throw new IOException("Expected bulk string, got: " + lenLine);
+            }
+
+            String arg = in.readLine(); // actual content
+            args.add(arg);
+        }
+        return args;
     }
 
-    // Helper function to read the argument (e.g., "hey" for ECHO)
-    private String readArgument(BufferedReader in) throws IOException {
-        in.readLine(); // Read $<length> (length of the argument)
-        return in.readLine().trim(); // Read the actual argument (e.g., "hey")
-    }
+    private void handleSet(List<String> args, OutputStream out) throws IOException {
+        if (args.size() < 3) {
+            out.write(("-ERR wrong number of arguments for 'SET'\r\n").getBytes());
+            return;
+        }
 
-    private void handleSetCommand(BufferedReader in, OutputStream out) throws IOException {
-        String key = readArgument(in);
-        String value = readArgument(in);
+        String key = args.get(1);
+        String value = args.get(2);
 
-        long expiryTimeMillis = 0;
-
-        in.mark(1000); // mark the stream to be able to reset later
-        String maybeNext = in.readLine();
-        if (maybeNext != null && maybeNext.toLowerCase().startsWith("$")) {
-            // There's more data, read the label (possibly "px")
-            String label = in.readLine().trim();
-            if (label.equalsIgnoreCase("px")) {
-                readArgument(in); // read $length for expiry
-                expiryTimeMillis = Long.parseLong(readArgument(in));
-            } else {
-                // unexpected extra argument, ignore or handle gracefully
-                in.reset(); // rewind to before we peeked
+        long expiryMillis = 0;
+        if (args.size() >= 5 && args.get(3).equalsIgnoreCase("px")) {
+            try {
+                expiryMillis = Long.parseLong(args.get(4));
+            } catch (NumberFormatException e) {
+                out.write(("-ERR PX value is not a number\r\n").getBytes());
+                return;
             }
         }
 
-        long expirationTimestamp = expiryTimeMillis > 0 ? System.currentTimeMillis() + expiryTimeMillis : 0;
+        long expirationTimestamp = expiryMillis > 0 ? System.currentTimeMillis() + expiryMillis : 0;
         keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
 
         out.write("+OK\r\n".getBytes());
     }
 
-    private void handleGetCommand(BufferedReader in, OutputStream out) throws IOException {
-        // Read the key for the GET command
-        String key = readArgument(in);
+    private void handleGet(List<String> args, OutputStream out) throws IOException {
+        if (args.size() < 2) {
+            out.write(("-ERR wrong number of arguments for 'GET'\r\n").getBytes());
+            return;
+        }
+
+        String key = args.get(1);
         KeyValue keyValue = keyValueStore.get(key);
 
         if (keyValue != null) {
-            // Check if the key has expired
             if (keyValue.hasExpired()) {
-                // Remove expired key and return null bulk string
                 keyValueStore.remove(key);
                 out.write("$-1\r\n".getBytes());
             } else {
-                // Return the value as a bulk string if the key has not expired
-                out.write(("$" + keyValue.value.length() + "\r\n" + keyValue.value + "\r\n").getBytes());
+                String value = keyValue.value;
+                out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
             }
         } else {
-            // Return null bulk string if the key does not exist
             out.write("$-1\r\n".getBytes());
         }
     }
 
-    // Key-Value class with expiration support
     static class KeyValue {
         String value;
         long expirationTimestamp;
@@ -141,7 +147,6 @@ class ClientHandler extends Thread {
         }
 
         boolean hasExpired() {
-            // If the expirationTimestamp is greater than 0 and the current time is after the expiration, the key has expired
             return expirationTimestamp > 0 && System.currentTimeMillis() > expirationTimestamp;
         }
     }
