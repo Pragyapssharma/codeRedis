@@ -26,7 +26,7 @@ public class RDBParser {
                 String key = readLengthEncodedString(in);
                 String value = readLengthEncodedString(in);
 //                ClientHandler.keyValueStore.put(key, new ClientHandler.KeyValue(value, 0));
-                ClientHandler.putKey(key, value, expireAtMillis);
+                ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
                 expireAtMillis = 0;
             } else if (opcode == 0xFA) { // AUX field
             	readLengthEncodedString(in); // key
