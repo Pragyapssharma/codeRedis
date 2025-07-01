@@ -48,8 +48,17 @@ public class RDBParser {
             return ((firstByte & 0x3F) << 8) | secondByte;
         } else if (type == 2) {
             return Integer.toUnsignedLong(in.readInt());
+        } else if (type == 3) {
+            int encType = firstByte & 0x3F;
+            // Handle small integer encodings (0–2)
+            switch (encType) {
+                case 0: return in.readByte();       // 8-bit int
+                case 1: return in.readShort();      // 16-bit int
+                case 2: return in.readInt();        // 32-bit int
+                default: throw new IOException("Unsupported encoded length type: " + encType);
+            }
         } else {
-            throw new IOException("Unsupported length encoding type");
+            throw new IOException("Invalid length prefix");
         }
     }
 
