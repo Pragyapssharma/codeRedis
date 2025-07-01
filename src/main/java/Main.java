@@ -12,6 +12,25 @@ public class Main {
         // Initialize variables
         ServerSocket serverSocket = null;
         int port = 6379;
+        
+     // Parse command-line arguments
+        for (int i = 0; i < args.length - 1; i++) {
+            switch (args[i]) {
+                case "--dir":
+                    Config.dir = args[i + 1];
+                    break;
+                case "--dbfilename":
+                    Config.dbFilename = args[i + 1];
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        // Show parsed config (for debug/logging purposes)
+        System.out.println("Configured dir: " + Config.dir);
+        System.out.println("Configured dbfilename: " + Config.dbFilename);
+
 
         try {
             // Set up the server socket and wait for client connections

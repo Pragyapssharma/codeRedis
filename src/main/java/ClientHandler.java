@@ -53,6 +53,10 @@ class ClientHandler extends Thread {
                         case "GET":
                             handleGet(args, out);
                             break;
+                        
+                        case "CONFIG":
+                            handleConfig(args, out);
+                            break;
 
                         default:
                             System.out.println("Unknown command: " + command);
@@ -150,4 +154,32 @@ class ClientHandler extends Thread {
             return expirationTimestamp > 0 && System.currentTimeMillis() > expirationTimestamp;
         }
     }
+    
+    private void handleConfig(List<String> args, OutputStream out) throws IOException {
+        if (args.size() >= 3 && args.get(1).equalsIgnoreCase("GET")) {
+            String param = args.get(2).toLowerCase();
+            String value;
+
+            switch (param) {
+                case "dir":
+                    value = Config.dir;
+                    break;
+                case "dbfilename":
+                    value = Config.dbFilename;
+                    break;
+                default:
+                    value = "";
+                    break;
+            }
+
+            // RESP array response with key and value
+            String response = "*2\r\n" +
+                              "$" + param.length() + "\r\n" + param + "\r\n" +
+                              "$" + value.length() + "\r\n" + value + "\r\n";
+            out.write(response.getBytes());
+        } else {
+            out.write("-ERR wrong number of arguments for CONFIG GET\r\n".getBytes());
+        }
+    }
+    
 }
