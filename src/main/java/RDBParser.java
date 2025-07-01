@@ -5,8 +5,10 @@ import java.io.InputStream;
 public class RDBParser {
     public static void loadFromStream(InputStream stream) throws IOException {
     	
-    	long expireAtMillis = 0;
         DataInputStream in = new DataInputStream(stream);
+        long expireAtMillis = 0;
+        boolean hasExpiry = false;
+
 
         // Read header: "REDIS" + version (magic 5 bytes + 4 version bytes)
         byte[] header = new byte[9];
@@ -17,9 +19,13 @@ public class RDBParser {
 
             switch (b) {
                 case 0xFD:
-                    expireAtMillis = in.readLong(); break;
+                	expireAtMillis = in.readLong();
+                    hasExpiry = true;
+                    break;
                 case 0xFC:
-                    expireAtMillis = ((long) in.readInt()) * 1000; break;
+                	expireAtMillis = ((long) in.readInt()) * 1000;
+                    hasExpiry = true;
+                    break;
                 case 0xFE:
                     in.readByte(); break;
                 case 0xFA:
@@ -31,11 +37,16 @@ public class RDBParser {
                 default:
                     // Assume `b` is a data type (e.g. string = 0x00, list = 0x01, etc.)
                     // For this challenge, only strings are supported.
-                    String key = readLengthEncodedString(in);
-                    String value = readLengthEncodedString(in);
-                    ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
-                    expireAtMillis = 0;
-                    break;
+                	String key = readLengthEncodedString(in);
+                	String value = readLengthEncodedString(in);
+
+                	if (hasExpiry) {
+                	    ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
+                	    hasExpiry = false;
+                	    expireAtMillis = 0;
+                	} else {
+                	    ClientHandler.putKeyWithExpiry(key, value, 0); // no expiration
+                	}
             }
         }
         
