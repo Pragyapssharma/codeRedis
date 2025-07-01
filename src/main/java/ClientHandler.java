@@ -84,35 +84,30 @@ class ClientHandler extends Thread {
     }
 
     private void handleSetCommand(BufferedReader in, OutputStream out) throws IOException {
-        // Read the key and value for the SET command
-        String key = readArgument(in);  // The key
-        String value = readArgument(in);  // The value
+        String key = readArgument(in);
+        String value = readArgument(in);
 
-        // Default expiration is 0 (no expiration)
         long expiryTimeMillis = 0;
 
-        // Read the next argument to check if it's "px"
-        String nextArg = readArgument(in); // Might be "px"
-        
-        if (nextArg != null && nextArg.equalsIgnoreCase("px")) {
-            // If it is "px", read the expiration time in milliseconds
-            expiryTimeMillis = Long.parseLong(readArgument(in));  // Expiry in milliseconds
-        } else {
-            // If no "px" argument, just return the key-value without expiration
-            // We can ignore this extra argument for now (it will be null in case of no "px")
+        in.mark(1000); // mark the stream to be able to reset later
+        String maybeNext = in.readLine();
+        if (maybeNext != null && maybeNext.toLowerCase().startsWith("$")) {
+            // There's more data, read the label (possibly "px")
+            String label = in.readLine().trim();
+            if (label.equalsIgnoreCase("px")) {
+                readArgument(in); // read $length for expiry
+                expiryTimeMillis = Long.parseLong(readArgument(in));
+            } else {
+                // unexpected extra argument, ignore or handle gracefully
+                in.reset(); // rewind to before we peeked
+            }
         }
 
-        // Calculate the expiration timestamp (if expiration time is specified)
         long expirationTimestamp = expiryTimeMillis > 0 ? System.currentTimeMillis() + expiryTimeMillis : 0;
-
-        // Store the key-value pair with expiration (if any)
         keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
 
-        // Respond with +OK for SET command
         out.write("+OK\r\n".getBytes());
     }
-
-
 
     private void handleGetCommand(BufferedReader in, OutputStream out) throws IOException {
         // Read the key for the GET command
