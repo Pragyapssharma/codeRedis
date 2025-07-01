@@ -113,6 +113,7 @@ class ClientHandler extends Thread {
     }
 
 
+
     private void handleGetCommand(BufferedReader in, OutputStream out) throws IOException {
         // Read the key for the GET command
         String key = readArgument(in);
