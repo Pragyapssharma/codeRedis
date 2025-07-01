@@ -96,7 +96,7 @@ class ClientHandler extends Thread {
             expiryTimeMillis = Long.parseLong(readArgument(in));  // expiry in milliseconds
         } else {
             // If there's no "px", we just reset the nextArg to null
-            nextArg = null;
+//            nextArg = null;
         }
 
         // Calculate the expiration timestamp
