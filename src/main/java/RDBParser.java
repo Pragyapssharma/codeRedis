@@ -22,7 +22,7 @@ public class RDBParser {
             } else if (opcode == 0xFC) { // EXPIRETIME (in seconds)
                 long seconds = in.readInt();
                 expireAtMillis = seconds * 1000;
-            } else if (opcode == 0x00) { // String type
+            } else if (opcode == 0x00 || opcode == 0x7E) { // String type
                 String key = readLengthEncodedString(in);
                 String value = readLengthEncodedString(in);
 //                ClientHandler.keyValueStore.put(key, new ClientHandler.KeyValue(value, 0));
