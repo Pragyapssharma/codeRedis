@@ -39,13 +39,16 @@ public class RDBParser {
                     // For this challenge, only strings are supported.
                 	String key = readLengthEncodedString(in);
                 	String value = readLengthEncodedString(in);
-
+                	long now = System.currentTimeMillis();
                 	if (hasExpiry) {
-                	    ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
+                	    if (expireAtMillis > now) {
+                	        ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
+                	    }
+                	    // else: skip inserting key
                 	    hasExpiry = false;
                 	    expireAtMillis = 0;
                 	} else {
-                	    ClientHandler.putKeyWithExpiry(key, value, 0); // no expiration
+                	    ClientHandler.putKeyWithExpiry(key, value, 0);
                 	}
             }
         }
