@@ -1,4 +1,6 @@
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -30,7 +32,21 @@ public class Main {
         // Show parsed config (for debug/logging purposes)
         System.out.println("Configured dir: " + Config.dir);
         System.out.println("Configured dbfilename: " + Config.dbFilename);
-
+        
+        
+        String filePath = Config.dir + "/" + Config.dbFilename;
+        File rdbFile = new File(filePath);
+        if (rdbFile.exists()) {
+            try (FileInputStream fis = new FileInputStream(rdbFile)) {
+                RDBParser.loadFromStream(fis);
+                System.out.println("Loaded RDB file: " + filePath);
+            } catch (IOException e) {
+                System.out.println("Failed to read RDB: " + e.getMessage());
+            }
+        } else {
+            System.out.println("No RDB file found, starting with empty DB");
+        }
+        
 
         try {
             // Set up the server socket and wait for client connections

@@ -15,6 +15,10 @@ class ClientHandler extends Thread {
     public ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
     }
+    
+    public static void putKey(String key, String value) {
+        keyValueStore.put(key, new KeyValue(value, 0));
+    }
 
     @Override
     public void run() {
@@ -56,6 +60,10 @@ class ClientHandler extends Thread {
                         
                         case "CONFIG":
                             handleConfig(args, out);
+                            break;
+                            
+                        case "KEYS":
+                            handleKeys(args, out);
                             break;
 
                         default:
@@ -180,6 +188,19 @@ class ClientHandler extends Thread {
         } else {
             out.write("-ERR wrong number of arguments for CONFIG GET\r\n".getBytes());
         }
+    }
+    
+    private void handleKeys(List<String> args, OutputStream out) throws IOException {
+        String pattern = args.size() > 1 ? args.get(1) : "*";
+        List<String> keys = new ArrayList<>(keyValueStore.keySet());
+
+        // RESP array
+        StringBuilder response = new StringBuilder("*" + keys.size() + "\r\n");
+        for (String key : keys) {
+            response.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
+        }
+
+        out.write(response.toString().getBytes());
     }
     
 }
