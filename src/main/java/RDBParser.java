@@ -41,15 +41,19 @@ public class RDBParser {
                 	String value = readLengthEncodedString(in);
                 	long now = System.currentTimeMillis();
                 	if (hasExpiry) {
-                	    if (expireAtMillis > now) {
-                	        ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
-                	    }
-                	    // else: skip inserting key
-                	    hasExpiry = false;
-                	    expireAtMillis = 0;
-                	} else {
-                	    ClientHandler.putKeyWithExpiry(key, value, 0);
-                	}
+                		if (expireAtMillis > now) {
+                            // If the key hasn't expired, insert it with expiry time
+                            ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
+                        } else {
+                            // Skip inserting expired key
+                            System.out.println("Skipping expired key: " + key);
+                        }
+                        hasExpiry = false;
+                        expireAtMillis = 0;
+                    } else {
+                        // No expiry, just insert the key-value pair
+                        ClientHandler.putKeyWithExpiry(key, value, 0);
+                    }
                 	break;
             }
         }
@@ -69,7 +73,6 @@ public class RDBParser {
             return Integer.toUnsignedLong(in.readInt());
         } else if (type == 3) {
             int encType = firstByte & 0x3F;
-            // Handle small integer encodings (0–2)
             switch (encType) {
                 case 0: return in.readByte();       // 8-bit int
                 case 1: return in.readShort();      // 16-bit int
