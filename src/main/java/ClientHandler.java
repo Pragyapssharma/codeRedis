@@ -20,20 +20,27 @@ class ClientHandler extends Thread {
             String inputLine;
             // Process multiple commands from the same connection
             while ((inputLine = in.readLine()) != null) {
-                // Example input: *2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n
-                if (inputLine.startsWith("*2")) {
-                    String command = readCommand(in);
-                    String argument = readArgument(in);
+                System.out.println("Received: " + inputLine);
 
-                    // Handle ECHO command
-                    if (command.equalsIgnoreCase("ECHO")) {
+                // Determine if the input is a PING or ECHO command
+                if (inputLine.startsWith("*")) {
+                    // Process the command
+                    String command = readCommand(in);
+                    if (command.equalsIgnoreCase("PING")) {
+                        // RESP format for simple string PONG: +PONG\r\n
+                        out.write("+PONG\r\n".getBytes());
+                    } else if (command.equalsIgnoreCase("ECHO")) {
+                        String argument = readArgument(in);
                         // RESP format for bulk string: $<length>\r\n<argument>\r\n
                         String response = "$" + argument.length() + "\r\n" + argument + "\r\n";
                         out.write(response.getBytes());
                     } else {
-                        // If the command is not recognized, print a log (or handle errors)
-                        System.out.println("Received unknown command: " + command);
+                        // If we get an unknown command, just log it for now
+                        System.out.println("Unknown command: " + command);
                     }
+                } else {
+                    // If the command doesn't match expected format, print an error
+                    System.out.println("Invalid command format: " + inputLine);
                 }
             }
         } catch (IOException e) {
@@ -49,17 +56,15 @@ class ClientHandler extends Thread {
         }
     }
 
-    // Helper function to read the command (e.g., "ECHO")
+    // Helper function to read the command (e.g., "PING" or "ECHO")
     private String readCommand(BufferedReader in) throws IOException {
-        // The command is in the second line of the input (after *2\r\n$4\r\n)
-        in.readLine(); // Read $4 (length of ECHO)
-        return in.readLine().trim(); // Read the actual command (ECHO)
+        in.readLine(); // Read $4 (length of the command)
+        return in.readLine().trim(); // Read the actual command (e.g., PING or ECHO)
     }
 
-    // Helper function to read the argument (e.g., "hey")
+    // Helper function to read the argument (e.g., "hey" for ECHO)
     private String readArgument(BufferedReader in) throws IOException {
-        // The argument is in the fourth line (after $3\r\nhey\r\n)
-        in.readLine(); // Read $3 (length of "hey")
-        return in.readLine().trim(); // Read the actual argument (hey)
+        in.readLine(); // Read $3 (length of the argument)
+        return in.readLine().trim(); // Read the actual argument (e.g., "hey")
     }
 }
