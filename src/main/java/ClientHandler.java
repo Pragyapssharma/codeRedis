@@ -13,20 +13,27 @@ class ClientHandler extends Thread {
 
     @Override
     public void run() {
-        // Handle client communication
         try (
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             OutputStream out = clientSocket.getOutputStream()
         ) {
             String inputLine;
-            // Process multiple PING commands from the same connection
+            // Process multiple commands from the same connection
             while ((inputLine = in.readLine()) != null) {
-                if (inputLine.equals("PING")) {
-                    // Send the PONG response for each PING command
-                    out.write("+PONG\r\n".getBytes());
-                } else {
-                    // If we get something other than PING, we could log it or just ignore it
-                    System.out.println("Received unknown command: " + inputLine);
+                // Example input: *2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n
+                if (inputLine.startsWith("*2")) {
+                    String command = readCommand(in);
+                    String argument = readArgument(in);
+
+                    // Handle ECHO command
+                    if (command.equalsIgnoreCase("ECHO")) {
+                        // RESP format for bulk string: $<length>\r\n<argument>\r\n
+                        String response = "$" + argument.length() + "\r\n" + argument + "\r\n";
+                        out.write(response.getBytes());
+                    } else {
+                        // If the command is not recognized, print a log (or handle errors)
+                        System.out.println("Received unknown command: " + command);
+                    }
                 }
             }
         } catch (IOException e) {
@@ -40,5 +47,19 @@ class ClientHandler extends Thread {
                 System.out.println("IOException during client socket cleanup: " + e.getMessage());
             }
         }
+    }
+
+    // Helper function to read the command (e.g., "ECHO")
+    private String readCommand(BufferedReader in) throws IOException {
+        // The command is in the second line of the input (after *2\r\n$4\r\n)
+        in.readLine(); // Read $4 (length of ECHO)
+        return in.readLine().trim(); // Read the actual command (ECHO)
+    }
+
+    // Helper function to read the argument (e.g., "hey")
+    private String readArgument(BufferedReader in) throws IOException {
+        // The argument is in the fourth line (after $3\r\nhey\r\n)
+        in.readLine(); // Read $3 (length of "hey")
+        return in.readLine().trim(); // Read the actual argument (hey)
     }
 }
