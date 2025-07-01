@@ -13,34 +13,32 @@ public class RDBParser {
         in.readFully(header);
 
         while (true) {
-            int opcode = in.readUnsignedByte();
+            int b = in.readUnsignedByte();
 
-            if (opcode == 0xFE) { // SELECT DB opcode
-                in.readByte(); // skip DB ID
-            } else if (opcode == 0xFD) { // EXPIRETIME_MS (ignore)
-            	expireAtMillis = in.readLong();
-            } else if (opcode == 0xFC) { // EXPIRETIME (in seconds)
-                long seconds = in.readInt();
-                expireAtMillis = seconds * 1000;
-            } else if (opcode == 0x00 || opcode == 0x7E) { // String type
-                String key = readLengthEncodedString(in);
-                String value = readLengthEncodedString(in);
-//                ClientHandler.keyValueStore.put(key, new ClientHandler.KeyValue(value, 0));
-                ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
-                expireAtMillis = 0;
-            } else if (opcode == 0xFA) { // AUX field
-            	readLengthEncodedString(in); // key
-                readLengthEncodedString(in); // value
-                    // Discard both—just metadata
-            } else if (opcode == 0xFB) { // RESIZEDB
-                readLength(in); // number of keys hint
-                readLength(in); // number of expires hint
-            } else if (opcode == 0xFF) { // EOF
-                break;
-            } else {
-                throw new IOException("Unknown opcode: " + opcode);
+            switch (b) {
+                case 0xFD:
+                    expireAtMillis = in.readLong(); break;
+                case 0xFC:
+                    expireAtMillis = ((long) in.readInt()) * 1000; break;
+                case 0xFE:
+                    in.readByte(); break;
+                case 0xFA:
+                    readLengthEncodedString(in); readLengthEncodedString(in); break;
+                case 0xFB:
+                    readLength(in); readLength(in); break;
+                case 0xFF:
+                    return;
+                default:
+                    // Assume `b` is a data type (e.g. string = 0x00, list = 0x01, etc.)
+                    // For this challenge, only strings are supported.
+                    String key = readLengthEncodedString(in);
+                    String value = readLengthEncodedString(in);
+                    ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
+                    expireAtMillis = 0;
+                    break;
             }
         }
+        
     }
     
     private static long readLength(DataInputStream in) throws IOException {
