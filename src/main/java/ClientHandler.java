@@ -191,14 +191,20 @@ class ClientHandler extends Thread {
     }
     
     private void handleKeys(List<String> args, OutputStream out) throws IOException {
-        String pattern = args.size() > 1 ? args.get(1) : "*";
-        List<String> keys = new ArrayList<>(keyValueStore.keySet());
 
-        // RESP array
-        StringBuilder response = new StringBuilder("*" + keys.size() + "\r\n");
-        for (String key : keys) {
+    	List<String> filteredKeys = new ArrayList<>();
+
+        for (String key : keyValueStore.keySet()) {
+            KeyValue kv = keyValueStore.get(key);
+            if (!kv.hasExpired()) {
+                filteredKeys.add(key);
+            }
+        }
+        StringBuilder response = new StringBuilder("*" + filteredKeys.size() + "\r\n");
+        for (String key : filteredKeys) {
             response.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
         }
+
 
         out.write(response.toString().getBytes());
     }
