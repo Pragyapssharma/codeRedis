@@ -89,25 +89,27 @@ class ClientHandler extends Thread {
         // Default expiration is 0 (no expiration)
         long expiryTimeMillis = 0;
 
-        // Check if the next argument is "PX" for expiration time
+        // Read the next argument, which might be "px"
         String nextArg = readArgument(in);  // Might be "px"
+        
         if (nextArg != null && nextArg.equalsIgnoreCase("px")) {
             // If it is "px", read the expiration time in milliseconds
             expiryTimeMillis = Long.parseLong(readArgument(in));  // expiry in milliseconds
         } else {
-            // If there's no "px", we just reset the nextArg to null
-//            nextArg = null;
+            // If no "px", do nothing (no expiration)
+            // We don't need to do anything special here
         }
 
-        // Calculate the expiration timestamp
+        // Calculate the expiration timestamp (if expiration time is specified)
         long expirationTimestamp = expiryTimeMillis > 0 ? System.currentTimeMillis() + expiryTimeMillis : 0;
 
-        // Store the key-value pair with expiration
+        // Store the key-value pair with expiration (if any)
         keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
 
         // Respond with +OK for SET command
         out.write("+OK\r\n".getBytes());
     }
+
 
 
     private void handleGetCommand(BufferedReader in, OutputStream out) throws IOException {
