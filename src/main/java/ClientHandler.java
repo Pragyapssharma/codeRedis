@@ -3,9 +3,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 
 class ClientHandler extends Thread {
     private Socket clientSocket;
+    private static final Map<String, String> keyValueStore = new HashMap<>();
 
     public ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -34,6 +37,24 @@ class ClientHandler extends Thread {
                         // RESP format for bulk string: $<length>\r\n<argument>\r\n
                         String response = "$" + argument.length() + "\r\n" + argument + "\r\n";
                         out.write(response.getBytes());
+                    } else if (command.equalsIgnoreCase("SET")) {
+                        // Handle SET command: store the key-value pair
+                        String key = readArgument(in);
+                        String value = readArgument(in);
+                        keyValueStore.put(key, value);
+                        // Respond with +OK for SET command
+                        out.write("+OK\r\n".getBytes());
+                    } else if (command.equalsIgnoreCase("GET")) {
+                        // Handle GET command: retrieve the value for the key
+                        String key = readArgument(in);
+                        String value = keyValueStore.get(key);
+                        if (value != null) {
+                            // Return the value as a bulk string if the key exists
+                            out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
+                        } else {
+                            // Return null bulk string if the key does not exist
+                            out.write("$-1\r\n".getBytes());
+                        }    
                     } else {
                         // If we get an unknown command, just log it for now
                         System.out.println("Unknown command: " + command);
