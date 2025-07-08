@@ -24,22 +24,18 @@ public class RDBParser {
 
 			switch (b) {
 			case 0xFD:
-				expireAtMillis = readUnsignedLong(in); // 64-bit expiry time in ms (absolute)
-				System.out.printf("Raw expireAtMillis before conversion: %d\n", expireAtMillis);
-				if (expireAtMillis < 2_000_000_000_000L) { // less than ~Jan 2033 in ms?
-					// sometimes expiry can be in seconds? rare for 64-bit, but add safeguard
-					expireAtMillis *= 1000L;
-					System.out.printf("After multiplying by 1000: %d\n", expireAtMillis);
-				}
+				long ttlMillis64 = readUnsignedLong(in);
+			    // treat as TTL (duration) and add to current time to get absolute expiry
+			    expireAtMillis = System.currentTimeMillis() + ttlMillis64;
 				hasExpiry = true;
 				break;
 			case 0xFC:
 				byte[] expiryBytes = new byte[4];
 				in.readFully(expiryBytes);
-				long expirySeconds = ((expiryBytes[0] & 0xFFL) << 24) | ((expiryBytes[1] & 0xFFL) << 16)
-						| ((expiryBytes[2] & 0xFFL) << 8) | (expiryBytes[3] & 0xFFL);
-				expireAtMillis = expirySeconds * 1000L; // convert to ms absolute timestamp
-				System.out.printf("Expiry (0xFC) seconds: %d, millis: %d\n", expirySeconds, expireAtMillis);
+				long ttlSeconds = ((expiryBytes[0] & 0xFFL) << 24) | ((expiryBytes[1] & 0xFFL) << 16)
+			            | ((expiryBytes[2] & 0xFFL) << 8) | (expiryBytes[3] & 0xFFL);
+			    expireAtMillis = System.currentTimeMillis() + (ttlSeconds * 1000L);
+				System.out.printf("Expiry (0xFC) seconds: %d, millis: %d\n", ttlSeconds, expireAtMillis);
 				hasExpiry = true;
 				break;
 
