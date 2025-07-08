@@ -26,10 +26,6 @@ public class RDBParser {
             switch (b) {
                 case 0xFD:
                 	expireAtMillis = readUnsignedLong(in);
-                	if (expireAtMillis < 2_000_000_000L) {
-                        // It's likely in seconds, convert to millis
-                        expireAtMillis *= 1000;
-                    }
                     hasExpiry = true;
                     break;
                 case 0xFC:
