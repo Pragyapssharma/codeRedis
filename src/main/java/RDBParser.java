@@ -40,7 +40,8 @@ public class RDBParser {
                     readLength(in); readLength(in); break;
                 case 0xFF:
                     return;
-                case 0x00:
+                default:
+                    if (b >= 0 && b <= 6) {
                     // Assume `b` is a data type (e.g. string = 0x00, list = 0x01, etc.)
                     // For this challenge, only strings are supported.
                 	String key = readLengthEncodedString(in);
@@ -62,20 +63,29 @@ public class RDBParser {
                         ClientHandler.putKeyWithExpiry(key, value, 0);
                         System.out.println("Loaded key without expiry: " + key);
                     }
+                    } else {
+                        System.out.println("Skipping unsupported type: " + b);
+                        skipUnsupportedObject(in);
+                    }
                 	break;
-                default:
-                    System.out.println("Skipping unsupported type: " + b);
-                    skipUnsupportedObject(in, b);
-                    break;
+                
             }
         }
         
     }
     
-    private static void skipUnsupportedObject(DataInputStream in, int type) throws IOException {
-        // For now, just throw error or consume bytes as needed
-        throw new IOException("Unsupported RDB object type: " + type);
+    private static void skipUnsupportedObject(DataInputStream in) throws IOException {
+        int objectType = in.readUnsignedByte();
+        System.out.println("Skipping unsupported type: " + objectType);
+        
+        try {
+            readLengthEncodedString(in);
+        } catch (IOException e) {
+            // If unable to skip, propagate the error
+            throw new IOException("Failed to skip unsupported object type: " + objectType, e);
+        }
     }
+
     
     private static long readLength(DataInputStream in) throws IOException {
         int firstByte = in.readUnsignedByte();
