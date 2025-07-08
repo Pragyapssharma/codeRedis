@@ -15,7 +15,13 @@ public class RDBParser {
         in.readFully(header);
 
         while (true) {
-            int b = in.readUnsignedByte();
+        	int b;
+        	
+            try {
+                b = in.readUnsignedByte();
+            } catch (IOException e) {
+                break; // End of stream
+            }
 
             switch (b) {
                 case 0xFD:
@@ -34,16 +40,17 @@ public class RDBParser {
                     readLength(in); readLength(in); break;
                 case 0xFF:
                     return;
-                default:
+                case 0x00:
                     // Assume `b` is a data type (e.g. string = 0x00, list = 0x01, etc.)
                     // For this challenge, only strings are supported.
                 	String key = readLengthEncodedString(in);
                 	String value = readLengthEncodedString(in);
                 	long now = System.currentTimeMillis();
                 	if (hasExpiry) {
-                		if (expireAtMillis >= System.currentTimeMillis()) {
+                		if (expireAtMillis >= now) {
                             // If the key hasn't expired, insert it with expiry time
                             ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
+                            System.out.println("Loaded key with expiry: " + key);
                         } else {
                             // Skip inserting expired key
                             System.out.println("Skipping expired key: " + key);
@@ -53,11 +60,21 @@ public class RDBParser {
                     } else {
                         // No expiry, just insert the key-value pair
                         ClientHandler.putKeyWithExpiry(key, value, 0);
+                        System.out.println("Loaded key without expiry: " + key);
                     }
                 	break;
+                default:
+                    System.out.println("Skipping unsupported type: " + b);
+                    skipUnsupportedObject(in, b);
+                    break;
             }
         }
         
+    }
+    
+    private static void skipUnsupportedObject(DataInputStream in, int type) throws IOException {
+        // For now, just throw error or consume bytes as needed
+        throw new IOException("Unsupported RDB object type: " + type);
     }
     
     private static long readLength(DataInputStream in) throws IOException {
