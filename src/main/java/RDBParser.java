@@ -65,6 +65,7 @@ public class RDBParser {
 					            key, expireAtMillis, new java.util.Date(expireAtMillis), now, new java.util.Date(now));
 					    if (expireAtMillis != 0 && expireAtMillis < now) {
 					        System.out.println("Skipping expired key: " + key);
+					        continue;
 					    } else {
 					        ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
 					        System.out.println("Loaded key with expiry: " + key);
