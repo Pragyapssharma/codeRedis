@@ -65,7 +65,7 @@ public class RDBParser {
                     }
                     } else {
                         System.out.println("Skipping unsupported type: " + b);
-                        skipUnsupportedObject(in);
+                        skipUnsupportedObject(b, in);
                     }
                 	break;
                 
@@ -74,17 +74,19 @@ public class RDBParser {
         
     }
     
-    private static void skipUnsupportedObject(DataInputStream in) throws IOException {
-        int objectType = in.readUnsignedByte();
+    private static void skipUnsupportedObject(int objectType, DataInputStream in) throws IOException {
         System.out.println("Skipping unsupported type: " + objectType);
         
+        // For now, let's assume these unsupported types encode a key and value as length-encoded strings
+        // so we try to read and discard both.
         try {
-            readLengthEncodedString(in);
+            readLengthEncodedString(in); // Skip key
+            readLengthEncodedString(in); // Skip value or payload
         } catch (IOException e) {
-            // If unable to skip, propagate the error
             throw new IOException("Failed to skip unsupported object type: " + objectType, e);
         }
     }
+
 
     
     private static long readLength(DataInputStream in) throws IOException {
