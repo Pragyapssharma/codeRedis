@@ -123,7 +123,8 @@ public class RDBParser {
     	                return ""; // Safely return empty string for now
     	        }
     	    } else {
-    	        throw new IOException("Invalid length prefix");
+    	    	System.out.println("Invalid string prefix byte: " + firstByte);
+    	        return "";
     	    }
     	}
 
