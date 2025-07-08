@@ -92,29 +92,41 @@ public class RDBParser {
         
     }
     
-    private static long readLength(DataInputStream in) throws IOException {
-        int firstByte = in.readUnsignedByte();
-        int type = (firstByte & 0xC0) >> 6;
+    	private static String readLength(DataInputStream in) throws IOException {
+    	    int firstByte = in.readUnsignedByte();
+    	    int type = (firstByte & 0xC0) >> 6;
 
-        if (type == 0) {
-            return firstByte & 0x3F;
-        } else if (type == 1) {
-            int secondByte = in.readUnsignedByte();
-            return ((firstByte & 0x3F) << 8) | secondByte;
-        } else if (type == 2) {
-            return Integer.toUnsignedLong(in.readInt());
-        } else if (type == 3) {
-            int encType = firstByte & 0x3F;
-            switch (encType) {
-                case 0: return in.readByte();       // 8-bit int
-                case 1: return in.readShort();      // 16-bit int
-                case 2: return in.readInt();        // 32-bit int
-                default: throw new IOException("Unsupported encoded length type: " + encType);
-            }
-        } else {
-            throw new IOException("Invalid length prefix");
-        }
-    }
+    	    if (type == 0) {
+    	        int len = firstByte & 0x3F;
+    	        byte[] bytes = new byte[len];
+    	        in.readFully(bytes);
+    	        return new String(bytes);
+    	    } else if (type == 1) {
+    	        int secondByte = in.readUnsignedByte();
+    	        int len = ((firstByte & 0x3F) << 8) | secondByte;
+    	        byte[] bytes = new byte[len];
+    	        in.readFully(bytes);
+    	        return new String(bytes);
+    	    } else if (type == 2) {
+    	        int len = in.readInt();
+    	        byte[] bytes = new byte[len];
+    	        in.readFully(bytes);
+    	        return new String(bytes);
+    	    } else if (type == 3) {
+    	        int encType = firstByte & 0x3F;
+    	        switch (encType) {
+    	            case 0: return String.valueOf(in.readByte());   // 8-bit int
+    	            case 1: return String.valueOf(in.readShort());  // 16-bit int
+    	            case 2: return String.valueOf(in.readInt());    // 32-bit int
+    	            default:
+    	                System.out.println("Warning: Unsupported encoded string type: " + encType + " — skipping and returning empty string.");
+    	                return ""; // Safely return empty string for now
+    	        }
+    	    } else {
+    	        throw new IOException("Invalid length prefix");
+    	    }
+    	}
+
 
     private static String readLengthEncodedString(DataInputStream in) throws IOException {
         int firstByte = in.readUnsignedByte();
