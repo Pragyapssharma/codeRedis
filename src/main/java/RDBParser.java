@@ -48,21 +48,19 @@ public class RDBParser {
                 	String value = readLengthEncodedString(in);
                 	long now = System.currentTimeMillis();
                 	if (hasExpiry) {
-                		if (expireAtMillis >= now) {
-                            // If the key hasn't expired, insert it with expiry time
-                            ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
-                            System.out.println("Loaded key with expiry: " + key);
-                        } else {
-                            // Skip inserting expired key
-                            System.out.println("Skipping expired key: " + key);
-                        }
-                        hasExpiry = false;
-                        expireAtMillis = 0;
-                    } else {
-                        // No expiry, just insert the key-value pair
-                        ClientHandler.putKeyWithExpiry(key, value, 0);
-                        System.out.println("Loaded key without expiry: " + key);
-                    }
+                	    System.out.printf("Checking expiry for key '%s': expireAtMillis=%d, now=%d%n", key, expireAtMillis, now);
+                	    if (expireAtMillis > 0 && expireAtMillis < now) {
+                	        System.out.println("Skipping expired key: " + key);
+                	    } else {
+                	        ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
+                	        System.out.println("Loaded key with expiry: " + key);
+                	    }
+                	    hasExpiry = false;
+                	    expireAtMillis = 0;
+                	} else {
+                	    ClientHandler.putKeyWithExpiry(key, value, 0);
+                	    System.out.println("Loaded key without expiry: " + key);
+                	}
                     } else {
                         System.out.println("Skipping unsupported type: " + b);
                         skipUnsupportedObject(b, in);
