@@ -24,27 +24,27 @@ public class RDBParser {
                 break; // End of stream
             }
         	
-        	// Reset expiry before reading a new key
-            if (b != 0xFD && b != 0xFC) {
-                hasExpiry = false;
-                expireAtMillis = 0;
-            }
-
             switch (b) {
                 case 0xFD:
                 	expireAtMillis = in.readLong();
                     hasExpiry = true;
-                    break;
+                    continue;
                 case 0xFC:
                 	expireAtMillis = ((long) in.readInt()) * 1000;
                     hasExpiry = true;
-                    break;
+                    continue;
                 case 0xFE:
-                    in.readByte(); break;
+                	readLengthEncodedString(in);  // key
+                    readLengthEncodedString(in);  // value
+                    continue;
+//                	in.readByte(); break;
                 case 0xFA:
-                    readLengthEncodedString(in); readLengthEncodedString(in); break;
+                	readLengthEncodedString(in);
+                    readLengthEncodedString(in);
+                    continue;
+//                	readLengthEncodedString(in); readLengthEncodedString(in); break;
                 case 0xFB:
-                    readLength(in); readLength(in); break;
+                    readLength(in); readLength(in); continue;
                 case 0xFF:
                     return;
                 default:
@@ -54,13 +54,22 @@ public class RDBParser {
                 	String value = readLengthEncodedString(in);
                 	long now = System.currentTimeMillis();
                 	
-                	if (hasExpiry && expireAtMillis > now) {
-                        ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
-                    } else if (hasExpiry) {
-                        System.out.println("Skipping expired key: " + key);
+                	if (hasExpiry) {
+                        if (expireAtMillis > now) {
+                            ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
+                            System.out.println("Loaded key with expiry: " + key);
+                        } else {
+                            System.out.println("Skipping expired key: " + key);
+                        }
                     } else {
                         ClientHandler.putKeyWithExpiry(key, value, 0);
+                        System.out.println("Loaded key without expiry: " + key);
                     }
+
+                    // RESET after applying expiry to this key
+                    hasExpiry = false;
+                    expireAtMillis = 0;
+
                 	
                 	
 //                	if (hasExpiry) {
@@ -77,7 +86,7 @@ public class RDBParser {
 //                        // No expiry, just insert the key-value pair
 //                        ClientHandler.putKeyWithExpiry(key, value, 0);
 //                    }
-                	break;
+//                	break;
             }
         }
         
