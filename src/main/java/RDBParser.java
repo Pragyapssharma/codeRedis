@@ -26,6 +26,10 @@ public class RDBParser {
             switch (b) {
                 case 0xFD:
                 	expireAtMillis = readUnsignedLong(in);
+                	if (expireAtMillis < 2_000_000_000L) {
+                        // It's likely in seconds, convert to millis
+                        expireAtMillis *= 1000;
+                    }
                     hasExpiry = true;
                     break;
                 case 0xFC:
@@ -46,9 +50,16 @@ public class RDBParser {
                     // For this challenge, only strings are supported.
                 	String key = readLengthEncodedString(in);
                 	String value = readLengthEncodedString(in);
-                	long now = System.currentTimeMillis();
+                	
                 	if (hasExpiry) {
-                	    System.out.printf("Checking expiry for key '%s': expireAtMillis=%d, now=%d%n", key, expireAtMillis, now);
+                		long now = System.currentTimeMillis();
+                		System.out.printf("Checking expiry for key '%s': expireAtMillis=%d (%s), now=%d (%s)%n",
+                		        key,
+                		        expireAtMillis,
+                		        new java.util.Date(expireAtMillis).toString(),
+                		        now,
+                		        new java.util.Date(now).toString()
+                		    );
                 	    if (expireAtMillis > 0 && expireAtMillis < now) {
                 	        System.out.println("Skipping expired key: " + key);
                 	    } else {
