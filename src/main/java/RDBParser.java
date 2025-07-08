@@ -26,10 +26,10 @@ public class RDBParser {
             switch (b) {
                 case 0xFD:
                 	expireAtMillis = readUnsignedLong(in);
-                	System.out.printf("Raw expireAtMillis: %d\n", expireAtMillis);
+                	System.out.printf("Raw expireAtMillis before conversion: %d\n", expireAtMillis);
                     if (expireAtMillis < 2_000_000_000_000L) {
-                        expireAtMillis *= 1000;
-                        System.out.printf("After *1000 expireAtMillis: %d\n", expireAtMillis);
+                        expireAtMillis = expireAtMillis * 1000L;
+                        System.out.printf("After multiplying by 1000: %d\n", expireAtMillis);
                     }
                     hasExpiry = true;
                     break;
