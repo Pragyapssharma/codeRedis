@@ -25,7 +25,7 @@ public class RDBParser {
 
             switch (b) {
                 case 0xFD:
-                	expireAtMillis = in.readLong();
+                	expireAtMillis = readUnsignedLong(in);
                     hasExpiry = true;
                     break;
                 case 0xFC:
@@ -85,6 +85,13 @@ public class RDBParser {
         }
     }
 
+    private static long readUnsignedLong(DataInputStream in) throws IOException {
+        long value = 0;
+        for (int i = 0; i < 8; i++) {
+            value = (value << 8) | (in.readUnsignedByte() & 0xFF);
+        }
+        return value;
+    }
 
     
     private static long readLength(DataInputStream in) throws IOException {
