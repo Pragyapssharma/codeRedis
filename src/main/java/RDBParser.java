@@ -15,36 +15,23 @@ public class RDBParser {
         in.readFully(header);
 
         while (true) {
-        	
-        	int b;
-            
-        	try {
-                b = in.readUnsignedByte();
-            } catch (IOException e) {
-                break; // End of stream
-            }
-        	
+            int b = in.readUnsignedByte();
+
             switch (b) {
                 case 0xFD:
                 	expireAtMillis = in.readLong();
                     hasExpiry = true;
-                    continue;
+                    break;
                 case 0xFC:
                 	expireAtMillis = ((long) in.readInt()) * 1000;
                     hasExpiry = true;
-                    continue;
+                    break;
                 case 0xFE:
-                	readLengthEncodedString(in);  // key
-                    readLengthEncodedString(in);  // value
-                    continue;
-//                	in.readByte(); break;
+                    in.readByte(); break;
                 case 0xFA:
-                	readLengthEncodedString(in);
-                    readLengthEncodedString(in);
-                    continue;
-//                	readLengthEncodedString(in); readLengthEncodedString(in); break;
+                    readLengthEncodedString(in); readLengthEncodedString(in); break;
                 case 0xFB:
-                    readLength(in); readLength(in); continue;
+                    readLength(in); readLength(in); break;
                 case 0xFF:
                     return;
                 default:
@@ -53,81 +40,49 @@ public class RDBParser {
                 	String key = readLengthEncodedString(in);
                 	String value = readLengthEncodedString(in);
                 	long now = System.currentTimeMillis();
-                	
                 	if (hasExpiry) {
-                        if (expireAtMillis > now) {
+                		if (expireAtMillis > now) {
+                            // If the key hasn't expired, insert it with expiry time
                             ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
-                            System.out.println("Loaded key with expiry: " + key);
                         } else {
+                            // Skip inserting expired key
                             System.out.println("Skipping expired key: " + key);
                         }
+                        hasExpiry = false;
+                        expireAtMillis = 0;
                     } else {
+                        // No expiry, just insert the key-value pair
                         ClientHandler.putKeyWithExpiry(key, value, 0);
-                        System.out.println("Loaded key without expiry: " + key);
                     }
-
-                    // RESET after applying expiry to this key
-                    hasExpiry = false;
-                    expireAtMillis = 0;
-
-                	
-                	
-//                	if (hasExpiry) {
-//                		if (expireAtMillis > now) {
-//                            // If the key hasn't expired, insert it with expiry time
-//                            ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
-//                        } else {
-//                            // Skip inserting expired key
-//                            System.out.println("Skipping expired key: " + key);
-//                        }
-//                        hasExpiry = false;
-//                        expireAtMillis = 0;
-//                    } else {
-//                        // No expiry, just insert the key-value pair
-//                        ClientHandler.putKeyWithExpiry(key, value, 0);
-//                    }
-//                	break;
+                	break;
             }
         }
         
     }
     
-    	private static String readLength(DataInputStream in) throws IOException {
-    	    int firstByte = in.readUnsignedByte();
-    	    int type = (firstByte & 0xC0) >> 6;
+    private static long readLength(DataInputStream in) throws IOException {
+        int firstByte = in.readUnsignedByte();
+        int type = (firstByte & 0xC0) >> 6;
 
-    	    if (type == 0) {
-    	        int len = firstByte & 0x3F;
-    	        byte[] bytes = new byte[len];
-    	        in.readFully(bytes);
-    	        return new String(bytes);
-    	    } else if (type == 1) {
-    	        int secondByte = in.readUnsignedByte();
-    	        int len = ((firstByte & 0x3F) << 8) | secondByte;
-    	        byte[] bytes = new byte[len];
-    	        in.readFully(bytes);
-    	        return new String(bytes);
-    	    } else if (type == 2) {
-    	        int len = in.readInt();
-    	        byte[] bytes = new byte[len];
-    	        in.readFully(bytes);
-    	        return new String(bytes);
-    	    } else if (type == 3) {
-    	        int encType = firstByte & 0x3F;
-    	        switch (encType) {
-    	            case 0: return String.valueOf(in.readByte());   // 8-bit int
-    	            case 1: return String.valueOf(in.readShort());  // 16-bit int
-    	            case 2: return String.valueOf(in.readInt());    // 32-bit int
-    	            default:
-    	                System.out.println("Warning: Unsupported encoded string type: " + encType + " — skipping and returning empty string.");
-    	                return ""; // Safely return empty string for now
-    	        }
-    	    } else {
-    	    	System.out.println("Invalid string prefix byte: " + firstByte);
-    	        return "";
-    	    }
-    	}
-
+        if (type == 0) {
+            return firstByte & 0x3F;
+        } else if (type == 1) {
+            int secondByte = in.readUnsignedByte();
+            return ((firstByte & 0x3F) << 8) | secondByte;
+        } else if (type == 2) {
+            return Integer.toUnsignedLong(in.readInt());
+        } else if (type == 3) {
+            int encType = firstByte & 0x3F;
+            switch (encType) {
+                case 0: return in.readByte();       // 8-bit int
+                case 1: return in.readShort();      // 16-bit int
+                case 2: return in.readInt();        // 32-bit int
+                default: throw new IOException("Unsupported encoded length type: " + encType);
+            }
+        } else {
+            throw new IOException("Invalid length prefix");
+        }
+    }
 
     private static String readLengthEncodedString(DataInputStream in) throws IOException {
         int firstByte = in.readUnsignedByte();
