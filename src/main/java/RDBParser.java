@@ -29,7 +29,7 @@ public class RDBParser {
                     hasExpiry = true;
                     break;
                 case 0xFC:
-                	expireAtMillis = ((long) in.readInt()) * 1000;
+                	expireAtMillis = ((long) in.readInt()) * 1000L;
                     hasExpiry = true;
                     break;
                 case 0xFE:
@@ -41,7 +41,7 @@ public class RDBParser {
                 case 0xFF:
                     return;
                 default:
-                    if (b >= 0 && b <= 6) {
+                	if (b >= 0x00 && b <= 0x06) {
                     // Assume `b` is a data type (e.g. string = 0x00, list = 0x01, etc.)
                     // For this challenge, only strings are supported.
                 	String key = readLengthEncodedString(in);
