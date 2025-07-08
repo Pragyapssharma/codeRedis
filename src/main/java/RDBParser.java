@@ -27,7 +27,8 @@ public class RDBParser {
                 case 0xFD:
                 	expireAtMillis = readUnsignedLong(in);
                 	System.out.printf("Raw expireAtMillis before conversion: %d\n", expireAtMillis);
-                    if (expireAtMillis < 2_000_000_000_000L) {
+                    // If expiry is less than ~2 billion, it's in seconds, so convert to millis
+                    if (expireAtMillis < 2_000_000_000L) {
                         expireAtMillis = expireAtMillis * 1000L;
                         System.out.printf("After multiplying by 1000: %d\n", expireAtMillis);
                     }
