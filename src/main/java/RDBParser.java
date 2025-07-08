@@ -35,7 +35,8 @@ public class RDBParser {
                     hasExpiry = true;
                     break;
                 case 0xFC:
-                	int expirySeconds = Integer.toUnsignedLong(in.readInt());
+                	int expirySecondsInt = in.readInt(); // read as int (signed)
+                    long expirySeconds = Integer.toUnsignedLong(expirySecondsInt);
                 	expireAtMillis = expirySeconds * 1000L;
                 	System.out.printf("Expiry (0xFC) seconds: %d, millis: %d\n", expirySeconds, expireAtMillis);
                     hasExpiry = true;
