@@ -41,7 +41,7 @@ public class RDBParser {
                 	String value = readLengthEncodedString(in);
                 	long now = System.currentTimeMillis();
                 	if (hasExpiry) {
-                		if (expireAtMillis > System.currentTimeMillis()) {
+                		if (expireAtMillis >= System.currentTimeMillis()) {
                             // If the key hasn't expired, insert it with expiry time
                             ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
                         } else {
