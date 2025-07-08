@@ -35,8 +35,8 @@ public class RDBParser {
                     hasExpiry = true;
                     break;
                 case 0xFC:
-                	int expirySeconds = in.readInt();
-                	expireAtMillis = ((long) in.readInt()) * 1000L;
+                	int expirySeconds = Integer.toUnsignedLong(in.readInt());
+                	expireAtMillis = expirySeconds * 1000L;
                 	System.out.printf("Expiry (0xFC) seconds: %d, millis: %d\n", expirySeconds, expireAtMillis);
                     hasExpiry = true;
                     break;
@@ -64,7 +64,7 @@ public class RDBParser {
                 		        now,
                 		        new java.util.Date(now).toString()
                 		    );
-                	    if (expireAtMillis > 0 && expireAtMillis < now) {
+                	    if (expireAtMillis != 0 && expireAtMillis < now) {
                 	        System.out.println("Skipping expired key: " + key);
                 	    } else {
                 	        ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
