@@ -43,6 +43,9 @@ class ClientHandler extends Thread {
             OutputStream out = clientSocket.getOutputStream()
         ) {
         	this.out = out;
+        	if (Config.isReplica) {
+                processMasterHandshake(in, out);
+            }
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
                 System.out.println("Received: " + inputLine);
@@ -54,6 +57,20 @@ class ClientHandler extends Thread {
                     if (args.isEmpty()) continue;
 
                     String command = args.get(0).toUpperCase();
+                    
+                    if (Config.isReplica) {
+                        // Process replicated command silently
+                        switch (command) {
+                            case "SET":
+                                handleSet(args, null); // null OutputStream => no reply
+                                break;
+                            default:
+                                System.out.println("Replica received unsupported command: " + command);
+                                break;
+                        }
+                        continue;
+                    }
+                    
                     switch (command) {
                         case "PING":
                             out.write("+PONG\r\n".getBytes());
@@ -174,7 +191,9 @@ class ClientHandler extends Thread {
             try {
                 expiryMillis = Long.parseLong(args.get(4));
             } catch (NumberFormatException e) {
-                out.write(("-ERR PX value is not a number\r\n").getBytes());
+            	if (out != null) {
+                    out.write(("-ERR PX value is not a number\r\n").getBytes());
+                }
                 return;
             }
         }
@@ -182,9 +201,12 @@ class ClientHandler extends Thread {
         long expirationTimestamp = expiryMillis > 0 ? System.currentTimeMillis() + expiryMillis : 0;
         keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
 
-        out.write("+OK\r\n".getBytes());
+        if (out != null) {
+            out.write("+OK\r\n".getBytes());
+        }
         
      // Propagate to all replicas
+      if (out != null) {
         StringBuilder command = new StringBuilder();
         command.append("*3\r\n");
         command.append("$3\r\nSET\r\n");
@@ -204,6 +226,7 @@ class ClientHandler extends Thread {
                 }
             }
         }
+      }
     }
     
     private void handleGet(List<String> args, OutputStream out) throws IOException {
@@ -319,6 +342,54 @@ class ClientHandler extends Thread {
         }
     }
 
+    private void processMasterHandshake(BufferedReader in, OutputStream out) throws IOException {
+        // Send REPLCONF listening-port
+        String replconfPort = "*3\r\n" +
+                              "$8\r\nREPLCONF\r\n" +
+                              "$14\r\nlistening-port\r\n" +
+                              "$" + String.valueOf(Config.port).length() + "\r\n" +
+                              Config.port + "\r\n";
+        out.write(replconfPort.getBytes());
+
+        // Send REPLCONF capa psync2
+        String replconfCapa = "*3\r\n" +
+                              "$8\r\nREPLCONF\r\n" +
+                              "$4\r\ncapa\r\n" +
+                              "$6\r\npsync2\r\n";
+        out.write(replconfCapa.getBytes());
+
+        // Send PSYNC ? -1
+        String psync = "*3\r\n" +
+                       "$5\r\nPSYNC\r\n" +
+                       "$1\r\n?\r\n" +
+                       "$2\r\n-1\r\n";
+        out.write(psync.getBytes());
+
+        out.flush();
+
+        String line;
+        // Wait for +FULLRESYNC
+        while ((line = in.readLine()) != null) {
+            if (line.startsWith("+FULLRESYNC")) {
+                System.out.println("Received FULLRESYNC: " + line);
+                break;
+            }
+        }
+
+        // Expect RDB bulk string: $<length>
+        line = in.readLine();
+        if (line != null && line.startsWith("$")) {
+            int rdbLength = Integer.parseInt(line.substring(1));
+            char[] rdbBuffer = new char[rdbLength];
+            int totalRead = 0;
+            while (totalRead < rdbLength) {
+                int read = in.read(rdbBuffer, totalRead, rdbLength - totalRead);
+                if (read == -1) break;
+                totalRead += read;
+            }
+            System.out.println("Read " + totalRead + " RDB bytes from master.");
+        }
+    }
 
 
     
