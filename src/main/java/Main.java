@@ -73,24 +73,9 @@ public class Main {
         }
 
         
-        
-//        if (rdbFile.exists()) {
-//            try (FileInputStream fis = new FileInputStream(rdbFile)) {
-//                RDBParser.loadFromStream(fis);
-//                System.out.println("Loaded RDB file: " + filePath);
-//            } catch (IOException e) {
-//                System.out.println("Failed to read RDB: " + e.getMessage());
-//                e.printStackTrace();
-//            }
-//        } else {
-//            System.out.println("No RDB file found, starting with empty DB");
-//        }
-        
         // Start server on specified port
         try {
             // Set up the server socket and wait for client connections
-//        	serverSocket = new ServerSocket(Config.port);
-//            serverSocket.setReuseAddress(true);
         	serverSocket = new ServerSocket();
         	serverSocket.setReuseAddress(true);
         	serverSocket.bind(new InetSocketAddress(Config.port));

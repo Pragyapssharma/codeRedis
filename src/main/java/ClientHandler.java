@@ -215,14 +215,23 @@ class ClientHandler extends Thread {
     
     private void handleInfo(List<String> args, OutputStream out) throws IOException {
         if (args.size() >= 2 && args.get(1).equalsIgnoreCase("replication")) {
-            String roleInfo = "role:" + (Config.isReplica ? "slave" : "master");
-            String response = "$" + roleInfo.length() + "\r\n" + roleInfo + "\r\n";
+            StringBuilder sb = new StringBuilder();
+
+            // Always include the role
+            sb.append("role:").append(Config.isReplica ? "slave" : "master").append("\r\n");
+
+            // Only masters return replid and offset
+            if (!Config.isReplica) {
+                sb.append("master_replid:").append(Config.masterReplId).append("\r\n");
+                sb.append("master_repl_offset:").append(Config.masterReplOffset).append("\r\n");
+            }
+
+            String info = sb.toString();
+            String response = "$" + info.length() + "\r\n" + info;
             out.write(response.getBytes());
         } else {
-            // Default behavior: only replication section is supported
-            String roleInfo = "role:" + (Config.isReplica ? "slave" : "master");
-            String response = "$" + roleInfo.length() + "\r\n" + roleInfo + "\r\n";
-            out.write(response.getBytes());
+            // Same response for unspecified section
+            handleInfo(List.of("INFO", "replication"), out);
         }
     }
 
