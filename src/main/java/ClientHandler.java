@@ -217,28 +217,35 @@ class ClientHandler extends Thread {
         if (args.size() >= 2 && args.get(1).equalsIgnoreCase("replication")) {
             StringBuilder sb = new StringBuilder();
 
-            // Always include role
+            // Append required fields
             sb.append("role:").append(Config.isReplica ? "slave" : "master").append("\r\n");
-
-            // Only master includes replication ID and offset
             if (!Config.isReplica) {
                 sb.append("master_replid:").append(Config.masterReplId).append("\r\n");
                 sb.append("master_repl_offset:").append(Config.masterReplOffset).append("\r\n");
             }
 
-            // Ensure the final line ends with \r\n
-            String info = sb.toString();
-            if (!info.endsWith("\r\n")) {
-                info += "\r\n";
+            // Get full string and ensure it ends with CRLF
+            String infoBody = sb.toString();
+            if (!infoBody.endsWith("\r\n")) {
+                infoBody += "\r\n";
             }
 
-            byte[] infoBytes = info.getBytes("UTF-8");
-            String response = "$" + infoBytes.length + "\r\n" + info;
-            out.write(response.getBytes("UTF-8"));
+            // Encode using UTF-8 and compute correct length
+            byte[] infoBytes = infoBody.getBytes("UTF-8");
+
+            // RESP bulk string format
+            String header = "$" + infoBytes.length + "\r\n";
+            out.write(header.getBytes("UTF-8"));
+            out.write(infoBytes);
+
+            
+            System.out.println("INFO output (" + infoBytes.length + " bytes):");
+            System.out.println(infoBody);
         } else {
             out.write("-ERR unsupported INFO section\r\n".getBytes());
         }
     }
+
 
 
 
