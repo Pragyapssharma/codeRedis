@@ -65,6 +65,10 @@ class ClientHandler extends Thread {
                         case "KEYS":
                             handleKeys(args, out);
                             break;
+                            
+                        case "INFO":
+                            handleInfo(args, out);
+                            break;
 
                         default:
                             System.out.println("Unknown command: " + command);
@@ -208,5 +212,19 @@ class ClientHandler extends Thread {
 
         out.write(response.toString().getBytes());
     }
+    
+    private void handleInfo(List<String> args, OutputStream out) throws IOException {
+        if (args.size() >= 2 && args.get(1).equalsIgnoreCase("replication")) {
+            String info = "role:master\r\n";
+            String response = "$" + info.length() + "\r\n" + info;
+            out.write(response.getBytes());
+        } else {
+            // You can optionally support other sections here in the future.
+            String fallback = "role:master\r\n";
+            String response = "$" + fallback.length() + "\r\n" + fallback;
+            out.write(response.getBytes());
+        }
+    }
+
     
 }
