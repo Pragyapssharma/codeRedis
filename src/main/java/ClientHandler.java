@@ -134,24 +134,15 @@ class ClientHandler extends Thread {
         }
 
         String key = args.get(1);
-        KeyValue keyValue = keyValueStore.get(key);
+        KeyValue kv = keyValueStore.get(key);
 
-        if (keyValue == null) {
-            System.out.println("GET " + key + " => not found");
-            out.write("$-1\r\n".getBytes());
+        if (kv == null || kv.hasExpired()) {
+            System.out.println("GET " + key + " => not found or expired");
+            out.write("$-1\r\n".getBytes());  // RESP nil bulk string
             return;
         }
 
-        if (keyValue.hasExpired()) {
-            System.out.println("GET " + key + " => expired");
-            keyValueStore.remove(key);
-            out.write("$-1\r\n".getBytes());
-            return;
-        }
-
-        // Key exists and is valid
-        String value = keyValue.value;
-        System.out.println("GET " + key + " => " + value);
+        String value = kv.value;  // direct field access, or use kv.getValue() if you add getter
         out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
     }
 
