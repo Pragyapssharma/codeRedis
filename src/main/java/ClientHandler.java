@@ -23,7 +23,8 @@ class ClientHandler extends Thread {
     	    (byte) 0x00, (byte) 0x00  // padding (some implementations expect 18 bytes total)
     	};
 
-
+    private static OutputStream replicaOut = null;
+    private boolean isReplicaConnection = false;
 
     public ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -39,6 +40,7 @@ class ClientHandler extends Thread {
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             OutputStream out = clientSocket.getOutputStream()
         ) {
+        	this.out = out;
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
                 System.out.println("Received: " + inputLine);
@@ -60,17 +62,21 @@ class ClientHandler extends Thread {
                             break;
                             
                         case "PSYNC":
-                            if (args.size() == 3 && args.get(1).equals("?") && args.get(2).equals("-1")) {
+                        	if (args.size() == 3 && args.get(1).equals("?") && args.get(2).equals("-1")) {
                                 String replId = Config.masterReplId;
                                 String fullResync = "+FULLRESYNC " + replId + " 0\r\n";
                                 out.write(fullResync.getBytes());
 
-                                // Now send empty RDB file as bulk response
+                                // Send empty RDB
                                 byte[] rdbBytes = EMPTY_RDB_FILE;
                                 String header = "$" + rdbBytes.length + "\r\n";
-                                out.write(header.getBytes()); // RESP bulk string header
-                                out.write(rdbBytes);          // Binary contents (no trailing \r\n)
+                                out.write(header.getBytes());
+                                out.write(rdbBytes);
                                 System.out.println("Sent FULLRESYNC and empty RDB file (" + rdbBytes.length + " bytes)");
+
+                                // Mark this as replica
+                                isReplicaConnection = true;
+                                replicaOut = out;
                             } else {
                                 out.write("-ERR unsupported PSYNC format\r\n".getBytes());
                             }
@@ -164,6 +170,23 @@ class ClientHandler extends Thread {
         keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
 
         out.write("+OK\r\n".getBytes());
+        
+     // Propagate SET to replica if connected
+        if (replicaOut != null && out != replicaOut) {
+            try {
+                StringBuilder sb = new StringBuilder();
+                sb.append("*3\r\n");
+                sb.append("$3\r\nSET\r\n");
+                sb.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
+                sb.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
+
+                replicaOut.write(sb.toString().getBytes());
+                replicaOut.flush();
+            } catch (IOException e) {
+                System.out.println("Failed to send command to replica: " + e.getMessage());
+                replicaOut = null;
+            }
+        }
     }
     
     private void handleGet(List<String> args, OutputStream out) throws IOException {
