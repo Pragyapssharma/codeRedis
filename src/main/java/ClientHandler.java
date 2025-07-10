@@ -139,6 +139,7 @@ class ClientHandler extends Thread {
         if (keyValue != null) {
             if (keyValue.hasExpired()) {
                 keyValueStore.remove(key);
+                System.out.println("GET " + key + " => null (expired or not found)");
                 out.write("$-1\r\n".getBytes());
             } else {
                 String value = keyValue.value;
