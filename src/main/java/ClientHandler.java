@@ -217,32 +217,31 @@ class ClientHandler extends Thread {
         if (args.size() >= 2 && args.get(1).equalsIgnoreCase("replication")) {
             StringBuilder sb = new StringBuilder();
 
-            // Append required fields
             sb.append("role:").append(Config.isReplica ? "slave" : "master").append("\r\n");
             if (!Config.isReplica) {
                 sb.append("master_replid:").append(Config.masterReplId).append("\r\n");
                 sb.append("master_repl_offset:").append(Config.masterReplOffset).append("\r\n");
             }
 
-            // Get full string and ensure it ends with CRLF
             String infoBody = sb.toString();
-
-            // Encode using UTF-8 and compute correct length
             byte[] infoBytes = infoBody.getBytes("UTF-8");
-
-            // RESP bulk string format
             String header = "$" + infoBytes.length + "\r\n";
-            out.write(header.getBytes("UTF-8"));
-            out.write(infoBytes);
 
             
             System.out.println("INFO output (" + infoBytes.length + " bytes):");
-            System.out.println(infoBody);
+            for (String line : infoBody.split("\r\n")) {
+                System.out.println("> " + line + " [\\r\\n]");
+            }
+            System.out.println("Header to send: " + header.replace("\r", "\\r").replace("\n", "\\n"));
+            System.out.println("Full payload length: " + infoBytes.length);
+            System.out.println("Sending full RESP:\n" + header + infoBody);
+
+            out.write(header.getBytes("UTF-8"));
+            out.write(infoBytes);
         } else {
             out.write("-ERR unsupported INFO section\r\n".getBytes());
         }
     }
-
 
 
 
