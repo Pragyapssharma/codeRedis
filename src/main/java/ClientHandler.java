@@ -143,9 +143,11 @@ class ClientHandler extends Thread {
                 out.write("$-1\r\n".getBytes());
             } else {
                 String value = keyValue.value;
+                System.out.println("GET " + key + " => " + value);
                 out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
             }
         } else {
+        	System.out.println("GET " + key + " => not found");
             out.write("$-1\r\n".getBytes());
         }
     }
