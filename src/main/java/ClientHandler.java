@@ -15,10 +15,14 @@ class ClientHandler extends Thread {
     private OutputStream out;
     private static final Map<String, KeyValue> keyValueStore = new HashMap<>();
     private static final byte[] EMPTY_RDB_FILE = new byte[] {
-    	    (byte) 0x52, (byte) 0x45, (byte) 0x44, (byte) 0x49, (byte) 0x53, (byte) 0x30, (byte) 0x30, (byte) 0x30,
-    	    (byte) 0x39, (byte) 0xFA, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xFF, (byte) 0x00,
-    	    (byte) 0x00
+    	    (byte) 0x52, (byte) 0x45, (byte) 0x44, (byte) 0x49, // REDI
+    	    (byte) 0x53, (byte) 0x30, (byte) 0x30, (byte) 0x30, (byte) 0x39, // S0009
+    	    (byte) 0xFA, (byte) 0x00, // auxiliary field with 0 length
+    	    (byte) 0xFF,             // end-of-RDB opcode
+    	    (byte) 0x00, (byte) 0x00, // dummy checksum
+    	    (byte) 0x00, (byte) 0x00  // padding (some implementations expect 18 bytes total)
     	};
+
 
 
     public ClientHandler(Socket clientSocket) {
