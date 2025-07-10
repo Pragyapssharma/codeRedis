@@ -215,15 +215,17 @@ class ClientHandler extends Thread {
     
     private void handleInfo(List<String> args, OutputStream out) throws IOException {
         if (args.size() >= 2 && args.get(1).equalsIgnoreCase("replication")) {
-            String info = "role:master";
-            String response = "$" + info.length() + "\r\n" + info + "\r\n";
+            String roleInfo = "role:" + (Config.isReplica ? "slave" : "master");
+            String response = "$" + roleInfo.length() + "\r\n" + roleInfo + "\r\n";
             out.write(response.getBytes());
         } else {
-            String fallback = "role:master";
-            String response = "$" + fallback.length() + "\r\n" + fallback + "\r\n";
+            // Default behavior: only replication section is supported
+            String roleInfo = "role:" + (Config.isReplica ? "slave" : "master");
+            String response = "$" + roleInfo.length() + "\r\n" + roleInfo + "\r\n";
             out.write(response.getBytes());
         }
     }
+
 
 
     

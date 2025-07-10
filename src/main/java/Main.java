@@ -14,13 +14,16 @@ public class Main {
         
      // Parse command-line arguments
         for (int i = 0; i < args.length - 1; i++) {
-            switch (args[i]) {
+            switch (args[i]) 
+            {
                 case "--dir":
                     Config.dir = args[i + 1];
                     break;
+                    
                 case "--dbfilename":
                     Config.dbFilename = args[i + 1];
                     break;
+                    
                 case "--port":
                     try {
                         port = Integer.parseInt(args[i + 1]);
@@ -29,6 +32,11 @@ public class Main {
                         return;
                     }
                     break;
+                    
+                case "--replicaof":
+                    Config.isReplica = true;
+                    break;   
+                    
                 default:
                     break;
             }
@@ -38,6 +46,7 @@ public class Main {
         System.out.println("Configured dir: " + Config.dir);
         System.out.println("Configured dbfilename: " + Config.dbFilename);
         System.out.println("Configured port: " + port);
+        System.out.println("Replica mode: " + Config.isReplica);
         
         
         String filePath = Config.dir + "/" + Config.dbFilename;
@@ -57,7 +66,7 @@ public class Main {
         // Start server on specified port
         try {
             // Set up the server socket and wait for client connections
-            serverSocket = new ServerSocket(port);
+        	serverSocket = new ServerSocket(Config.port);
             serverSocket.setReuseAddress(true);
             System.out.println("Server is listening on port " + port);
 
