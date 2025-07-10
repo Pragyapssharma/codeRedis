@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
@@ -10,6 +11,8 @@ import java.util.Map;
 
 class ClientHandler extends Thread {
     private Socket clientSocket;
+    private InputStream in;
+    private OutputStream out;
     private static final Map<String, KeyValue> keyValueStore = new HashMap<>();
 
     public ClientHandler(Socket clientSocket) {
@@ -40,6 +43,10 @@ class ClientHandler extends Thread {
                     switch (command) {
                         case "PING":
                             out.write("+PONG\r\n".getBytes());
+                            break;
+                            
+                        case "REPLCONF":
+                            out.write("+OK\r\n".getBytes());
                             break;
 
                         case "ECHO":
