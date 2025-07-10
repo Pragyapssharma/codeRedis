@@ -220,21 +220,22 @@ class ClientHandler extends Thread {
             // Always include the role
             sb.append("role:").append(Config.isReplica ? "slave" : "master").append("\r\n");
 
-            // Only masters return replid and offset
+            // Only masters include replication ID and offset
             if (!Config.isReplica) {
                 sb.append("master_replid:").append(Config.masterReplId).append("\r\n");
                 sb.append("master_repl_offset:").append(Config.masterReplOffset).append("\r\n");
             }
 
             String info = sb.toString();
-            String response = "$" + info.length() + "\r\n" + info;
+
+            // Correct RESP Bulk String format
+            String response = "$" + info.getBytes().length + "\r\n" + info;
             out.write(response.getBytes());
         } else {
-            // Same response for unspecified section
+            // Fallback to replication section
             handleInfo(List.of("INFO", "replication"), out);
         }
     }
-
 
 
     
