@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -117,6 +118,7 @@ public class Main {
                 System.out.println("Connecting to master at " + masterHost + ":" + masterPort);
                 Socket masterSocket = new Socket(masterHost, masterPort);
                 OutputStream out = masterSocket.getOutputStream();
+                InputStream in = masterSocket.getInputStream();
 
                 // Send PING command as RESP array
                 String pingCmd = "*1\r\n$4\r\nPING\r\n";
@@ -125,8 +127,47 @@ public class Main {
 
                 System.out.println("Sent PING to master");
 
-                // You may want to read master's response here, or continue handshake in separate logic
-                // For now just keep connection open or close after handshake as per your design
+             // Read PING response (+PONG\r\n expected)
+                String pongResp = readLine(in);
+                System.out.println("Received from master: " + pongResp);
+                if (!pongResp.equals("+PONG")) {
+                    System.err.println("Unexpected response to PING: " + pongResp);
+                    masterSocket.close();
+                    return;
+                }
+
+                // Send first REPLCONF: listening-port <port>
+                String portStr = Integer.toString(port);
+                String replconfListeningPort = String.format(
+                    "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
+                    portStr.length(), portStr);
+                out.write(replconfListeningPort.getBytes("UTF-8"));
+                out.flush();
+                System.out.println("Sent REPLCONF listening-port " + portStr);
+
+                // Read response to first REPLCONF (+OK\r\n expected)
+                String replconfResp1 = readLine(in);
+                System.out.println("Received from master: " + replconfResp1);
+                if (!replconfResp1.equals("+OK")) {
+                    System.err.println("Unexpected response to REPLCONF listening-port: " + replconfResp1);
+                    masterSocket.close();
+                    return;
+                }
+
+                // Send second REPLCONF: capa psync2
+                String replconfCapa = "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n";
+                out.write(replconfCapa.getBytes("UTF-8"));
+                out.flush();
+                System.out.println("Sent REPLCONF capa psync2");
+
+                // Read response to second REPLCONF (+OK\r\n expected)
+                String replconfResp2 = readLine(in);
+                System.out.println("Received from master: " + replconfResp2);
+                if (!replconfResp2.equals("+OK")) {
+                    System.err.println("Unexpected response to REPLCONF capa: " + replconfResp2);
+                    masterSocket.close();
+                    return;
+                }
 
             } catch (IOException e) {
                 System.err.println("Failed to connect/send PING to master: " + e.getMessage());
@@ -164,4 +205,30 @@ public class Main {
             }
         }
     }
+    
+    
+    private static String readLine(InputStream in) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        int b;
+        boolean gotCR = false;
+        while ((b = in.read()) != -1) {
+            if (gotCR) {
+                if (b == '\n') {
+                    break; // End of line
+                } else {
+                    sb.append('\r');
+                    gotCR = false;
+                }
+            }
+            if (b == '\r') {
+                gotCR = true;
+            } else {
+                sb.append((char) b);
+            }
+        }
+        return sb.toString();
+    }
+
+    
+    
 }
