@@ -17,7 +17,7 @@ public class Main {
         int masterPort = 0;
         
      // Parse command-line arguments
-        for (int i = 0; i < args.length - 1; i++) {
+        for (int i = 0; i < args.length; i++) {
             switch (args[i]) 
             {
                 case "--dir":
