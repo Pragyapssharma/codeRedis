@@ -217,25 +217,29 @@ class ClientHandler extends Thread {
         if (args.size() >= 2 && args.get(1).equalsIgnoreCase("replication")) {
             StringBuilder sb = new StringBuilder();
 
-            // Always include the role
+            // Always include role
             sb.append("role:").append(Config.isReplica ? "slave" : "master").append("\r\n");
 
-            // Only masters include replication ID and offset
+            // Only master includes replication ID and offset
             if (!Config.isReplica) {
                 sb.append("master_replid:").append(Config.masterReplId).append("\r\n");
                 sb.append("master_repl_offset:").append(Config.masterReplOffset).append("\r\n");
             }
 
+            // Ensure the final line ends with \r\n
             String info = sb.toString();
+            if (!info.endsWith("\r\n")) {
+                info += "\r\n";
+            }
 
-            // Correct RESP Bulk String format
-            String response = "$" + info.getBytes().length + "\r\n" + info;
-            out.write(response.getBytes());
+            byte[] infoBytes = info.getBytes("UTF-8");
+            String response = "$" + infoBytes.length + "\r\n" + info;
+            out.write(response.getBytes("UTF-8"));
         } else {
-            // Fallback to replication section
-        	out.write("-ERR unsupported INFO section\r\n".getBytes());
+            out.write("-ERR unsupported INFO section\r\n".getBytes());
         }
     }
+
 
 
     
