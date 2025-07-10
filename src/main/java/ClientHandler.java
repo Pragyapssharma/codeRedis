@@ -238,6 +238,7 @@ class ClientHandler extends Thread {
 
             out.write(header.getBytes("UTF-8"));
             out.write(infoBytes);
+            out.write("\r\n".getBytes("UTF-8"));
         } else {
             out.write("-ERR unsupported INFO section\r\n".getBytes());
         }
