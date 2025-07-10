@@ -233,7 +233,7 @@ class ClientHandler extends Thread {
             out.write(response.getBytes());
         } else {
             // Fallback to replication section
-            handleInfo(List.of("INFO", "replication"), out);
+        	out.write("-ERR unsupported INFO section\r\n".getBytes());
         }
     }
 
