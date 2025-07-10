@@ -21,19 +21,37 @@ public class Main {
             switch (args[i]) 
             {
                 case "--dir":
-                    Config.dir = args[i + 1];
+                	if (i + 1 < args.length) {
+                        Config.dir = args[i + 1];
+                        i++;
+                    } else {
+                        System.err.println("Missing value for --dir");
+                        return;
+                    }
                     break;
                     
                 case "--dbfilename":
-                    Config.dbFilename = args[i + 1];
+                	if (i + 1 < args.length) {
+                        Config.dbFilename = args[i + 1];
+                        i++;
+                    } else {
+                        System.err.println("Missing value for --dbfilename");
+                        return;
+                    }
                     break;
                     
                 case "--port":
-                    try {
-                        port = Integer.parseInt(args[i + 1]);
-                        Config.port = port;
-                    } catch (NumberFormatException e) {
-                        System.err.println("Invalid port number: " + args[i + 1]);
+                	if (i + 1 < args.length) {
+                        try {
+                            port = Integer.parseInt(args[i + 1]);
+                            Config.port = port;
+                            i++;
+                        } catch (NumberFormatException e) {
+                            System.err.println("Invalid port number: " + args[i + 1]);
+                            return;
+                        }
+                    } else {
+                        System.err.println("Missing value for --port");
                         return;
                     }
                     break;
