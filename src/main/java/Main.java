@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -27,6 +28,7 @@ public class Main {
                 case "--port":
                     try {
                         port = Integer.parseInt(args[i + 1]);
+                        Config.port = port;
                     } catch (NumberFormatException e) {
                         System.err.println("Invalid port number: " + args[i + 1]);
                         return;
@@ -45,29 +47,53 @@ public class Main {
         // Show parsed config (for debug/logging purposes)
         System.out.println("Configured dir: " + Config.dir);
         System.out.println("Configured dbfilename: " + Config.dbFilename);
-        System.out.println("Configured port: " + port);
+        System.out.println("Configured port: " + Config.port);
         System.out.println("Replica mode: " + Config.isReplica);
         
         
-        String filePath = Config.dir + "/" + Config.dbFilename;
-        File rdbFile = new File(filePath);
-        if (rdbFile.exists()) {
-            try (FileInputStream fis = new FileInputStream(rdbFile)) {
-                RDBParser.loadFromStream(fis);
-                System.out.println("Loaded RDB file: " + filePath);
-            } catch (IOException e) {
-                System.out.println("Failed to read RDB: " + e.getMessage());
-                e.printStackTrace();
+//        String filePath = Config.dir + "/" + Config.dbFilename;
+//        File rdbFile = new File(filePath);
+        
+        if (!Config.dir.isEmpty() && !Config.dbFilename.isEmpty()) {
+            String filePath = Config.dir + "/" + Config.dbFilename;
+            File rdbFile = new File(filePath);
+            if (rdbFile.exists() && rdbFile.isFile()) {
+                try (FileInputStream fis = new FileInputStream(rdbFile)) {
+                    RDBParser.loadFromStream(fis);
+                    System.out.println("Loaded RDB file: " + filePath);
+                } catch (IOException e) {
+                    System.out.println("Failed to read RDB: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("No RDB file found, starting with empty DB");
             }
         } else {
-            System.out.println("No RDB file found, starting with empty DB");
+            System.out.println("No RDB config provided, starting with empty DB");
         }
+
+        
+        
+//        if (rdbFile.exists()) {
+//            try (FileInputStream fis = new FileInputStream(rdbFile)) {
+//                RDBParser.loadFromStream(fis);
+//                System.out.println("Loaded RDB file: " + filePath);
+//            } catch (IOException e) {
+//                System.out.println("Failed to read RDB: " + e.getMessage());
+//                e.printStackTrace();
+//            }
+//        } else {
+//            System.out.println("No RDB file found, starting with empty DB");
+//        }
         
         // Start server on specified port
         try {
             // Set up the server socket and wait for client connections
-        	serverSocket = new ServerSocket(Config.port);
-            serverSocket.setReuseAddress(true);
+//        	serverSocket = new ServerSocket(Config.port);
+//            serverSocket.setReuseAddress(true);
+        	serverSocket = new ServerSocket();
+        	serverSocket.setReuseAddress(true);
+        	serverSocket.bind(new InetSocketAddress(Config.port));
             System.out.println("Server is listening on port " + port);
 
             // Infinite loop to accept multiple clients concurrently
