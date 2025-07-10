@@ -57,16 +57,22 @@ public class Main {
                     break;
                     
                 case "--replicaof":
-                	if (i + 2 < args.length) {
+                	if (i + 1 < args.length) {
                         Config.isReplica = true;
-                        masterHost = args[i + 1];
-                        try {
-                            masterPort = Integer.parseInt(args[i + 2]);
-                        } catch (NumberFormatException e) {
-                            System.err.println("Invalid replica port number: " + args[i + 2]);
+                        String[] parts = args[i + 1].split(" ");
+                        if (parts.length == 2) {
+                            masterHost = parts[0];
+                            try {
+                                masterPort = Integer.parseInt(parts[1]);
+                            } catch (NumberFormatException e) {
+                                System.err.println("Invalid replica port number: " + parts[1]);
+                                return;
+                            }
+                            i++;
+                        } else {
+                            System.err.println("Usage: --replicaof <host> <port>");
                             return;
                         }
-                        i += 2;
                     } else {
                         System.err.println("Usage: --replicaof <host> <port>");
                         return;
