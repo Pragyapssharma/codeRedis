@@ -182,10 +182,17 @@ class ClientHandler extends Thread {
             this.value = value;
             this.expirationTimestamp = expirationTimestamp;
         }
-
+        
         boolean hasExpired() {
-            return expirationTimestamp > 0 && System.currentTimeMillis() > expirationTimestamp;
+            long now = System.currentTimeMillis();
+            boolean expired = expirationTimestamp > 0 && now > expirationTimestamp;
+            System.out.printf("Checking if expired: now=%d, expire=%d, expired=%b%n", now, expirationTimestamp, expired);
+            return expired;
         }
+
+//        boolean hasExpired() {
+//            return expirationTimestamp > 0 && System.currentTimeMillis() > expirationTimestamp;
+//        }
     }
     
     private void handleConfig(List<String> args, OutputStream out) throws IOException {

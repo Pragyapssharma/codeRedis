@@ -34,7 +34,7 @@ public class RDBParser {
 				in.readFully(expiryBytes);
 				long expirySeconds = ((expiryBytes[0] & 0xFFL) << 24) | ((expiryBytes[1] & 0xFFL) << 16)
 			            | ((expiryBytes[2] & 0xFFL) << 8) | (expiryBytes[3] & 0xFFL);
-			    expireAtMillis = System.currentTimeMillis() + expirySeconds * 1000L;
+			    expireAtMillis = expirySeconds * 1000L;
 				System.out.printf("Expiry (0xFC) seconds: %d, millis: %d\n", expirySeconds, expireAtMillis);
 				hasExpiry = true;
 				break;
