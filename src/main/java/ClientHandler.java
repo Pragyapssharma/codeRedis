@@ -128,8 +128,8 @@ class ClientHandler extends Thread {
     }
 
     private void handleGet(List<String> args, OutputStream out) throws IOException {
-        if (args.size() < 2) {
-            out.write(("-ERR wrong number of arguments for 'GET'\r\n").getBytes());
+        if (args.size() != 2) {
+            out.write("-ERR wrong number of arguments for 'GET'\r\n".getBytes());
             return;
         }
 
@@ -138,19 +138,20 @@ class ClientHandler extends Thread {
 
         if (keyValue != null) {
             if (keyValue.hasExpired()) {
-                keyValueStore.remove(key);
-                System.out.println("GET " + key + " => null (expired or not found)");
+                keyValueStore.remove(key); // optional
+                System.out.println("GET " + key + " => expired");
                 out.write("$-1\r\n".getBytes());
             } else {
+                System.out.println("GET " + key + " => " + keyValue.value);
                 String value = keyValue.value;
-                System.out.println("GET " + key + " => " + value);
                 out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
             }
         } else {
-        	System.out.println("GET " + key + " => not found");
+            System.out.println("GET " + key + " => not found");
             out.write("$-1\r\n".getBytes());
         }
     }
+
 
     static class KeyValue {
         String value;
