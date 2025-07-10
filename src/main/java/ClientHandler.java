@@ -146,34 +146,6 @@ class ClientHandler extends Thread {
         out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
     }
 
-    
-
-//    private void handleGet(List<String> args, OutputStream out) throws IOException {
-//        if (args.size() != 2) {
-//            out.write("-ERR wrong number of arguments for 'GET'\r\n".getBytes());
-//            return;
-//        }
-//
-//        String key = args.get(1);
-//        KeyValue keyValue = keyValueStore.get(key);
-//
-//        if (keyValue != null) {
-//            if (keyValue.hasExpired()) {
-//                keyValueStore.remove(key); // optional
-//                System.out.println("GET " + key + " => expired");
-//                out.write("$-1\r\n".getBytes());
-//            } else {
-//                System.out.println("GET " + key + " => " + keyValue.value);
-//                String value = keyValue.value;
-//                out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
-//            }
-//        } else {
-//            System.out.println("GET " + key + " => not found");
-//            out.write("$-1\r\n".getBytes());
-//        }
-//    }
-
-
     static class KeyValue {
         String value;
         long expirationTimestamp;
@@ -189,10 +161,6 @@ class ClientHandler extends Thread {
             System.out.printf("Checking if expired: now=%d, expire=%d, expired=%b%n", now, expirationTimestamp, expired);
             return expired;
         }
-
-//        boolean hasExpired() {
-//            return expirationTimestamp > 0 && System.currentTimeMillis() > expirationTimestamp;
-//        }
     }
     
     private void handleConfig(List<String> args, OutputStream out) throws IOException {

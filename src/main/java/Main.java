@@ -1,9 +1,6 @@
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -24,6 +21,14 @@ public class Main {
                 case "--dbfilename":
                     Config.dbFilename = args[i + 1];
                     break;
+                case "--port":
+                    try {
+                        port = Integer.parseInt(args[i + 1]);
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid port number: " + args[i + 1]);
+                        return;
+                    }
+                    break;
                 default:
                     break;
             }
@@ -32,6 +37,7 @@ public class Main {
         // Show parsed config (for debug/logging purposes)
         System.out.println("Configured dir: " + Config.dir);
         System.out.println("Configured dbfilename: " + Config.dbFilename);
+        System.out.println("Configured port: " + port);
         
         
         String filePath = Config.dir + "/" + Config.dbFilename;
@@ -48,7 +54,7 @@ public class Main {
             System.out.println("No RDB file found, starting with empty DB");
         }
         
-
+        // Start server on specified port
         try {
             // Set up the server socket and wait for client connections
             serverSocket = new ServerSocket(port);
