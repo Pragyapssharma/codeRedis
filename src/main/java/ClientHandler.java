@@ -14,6 +14,12 @@ class ClientHandler extends Thread {
     private InputStream in;
     private OutputStream out;
     private static final Map<String, KeyValue> keyValueStore = new HashMap<>();
+    private static final byte[] EMPTY_RDB_FILE = new byte[] {
+    	    (byte) 0x52, (byte) 0x45, (byte) 0x44, (byte) 0x49, (byte) 0x53, (byte) 0x30, (byte) 0x30, (byte) 0x30,
+    	    (byte) 0x39, (byte) 0xFA, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xFF, (byte) 0x00,
+    	    (byte) 0x00
+    	};
+
 
     public ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -52,13 +58,20 @@ class ClientHandler extends Thread {
                         case "PSYNC":
                             if (args.size() == 3 && args.get(1).equals("?") && args.get(2).equals("-1")) {
                                 String replId = Config.masterReplId;
-                                String response = "+FULLRESYNC " + replId + " 0\r\n";
-                                out.write(response.getBytes());
-                                System.out.println("Sent FULLRESYNC to replica: " + response.trim());
+                                String fullResync = "+FULLRESYNC " + replId + " 0\r\n";
+                                out.write(fullResync.getBytes());
+
+                                // Now send empty RDB file as bulk response
+                                byte[] rdbBytes = EMPTY_RDB_FILE;
+                                String header = "$" + rdbBytes.length + "\r\n";
+                                out.write(header.getBytes()); // RESP bulk string header
+                                out.write(rdbBytes);          // Binary contents (no trailing \r\n)
+                                System.out.println("Sent FULLRESYNC and empty RDB file (" + rdbBytes.length + " bytes)");
                             } else {
                                 out.write("-ERR unsupported PSYNC format\r\n".getBytes());
                             }
                             break;
+
 
                         case "ECHO":
                             if (args.size() >= 2) {
