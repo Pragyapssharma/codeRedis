@@ -1,6 +1,7 @@
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -12,6 +13,8 @@ public class Main {
         // Initialize variables
         ServerSocket serverSocket = null;
         int port = 6379;
+        String masterHost = null;
+        int masterPort = 0;
         
      // Parse command-line arguments
         for (int i = 0; i < args.length - 1; i++) {
@@ -36,7 +39,20 @@ public class Main {
                     break;
                     
                 case "--replicaof":
-                    Config.isReplica = true;
+                	if (i + 2 < args.length) {
+                        Config.isReplica = true;
+                        masterHost = args[i + 1];
+                        try {
+                            masterPort = Integer.parseInt(args[i + 2]);
+                        } catch (NumberFormatException e) {
+                            System.err.println("Invalid replica port number: " + args[i + 2]);
+                            return;
+                        }
+                        i += 2;
+                    } else {
+                        System.err.println("Usage: --replicaof <host> <port>");
+                        return;
+                    }
                     break;   
                     
                 default:
@@ -51,8 +67,6 @@ public class Main {
         System.out.println("Replica mode: " + Config.isReplica);
         
         
-//        String filePath = Config.dir + "/" + Config.dbFilename;
-//        File rdbFile = new File(filePath);
         
         if (!Config.dir.isEmpty() && !Config.dbFilename.isEmpty()) {
             String filePath = Config.dir + "/" + Config.dbFilename;
@@ -71,7 +85,31 @@ public class Main {
         } else {
             System.out.println("No RDB config provided, starting with empty DB");
         }
+        
+        
+     // If replica mode, connect to master and send PING
+        if (Config.isReplica) {
+            try {
+                System.out.println("Connecting to master at " + masterHost + ":" + masterPort);
+                Socket masterSocket = new Socket(masterHost, masterPort);
+                OutputStream out = masterSocket.getOutputStream();
 
+                // Send PING command as RESP array
+                String pingCmd = "*1\r\n$4\r\nPING\r\n";
+                out.write(pingCmd.getBytes("UTF-8"));
+                out.flush();
+
+                System.out.println("Sent PING to master");
+
+                // You may want to read master's response here, or continue handshake in separate logic
+                // For now just keep connection open or close after handshake as per your design
+
+            } catch (IOException e) {
+                System.err.println("Failed to connect/send PING to master: " + e.getMessage());
+                e.printStackTrace();
+                return;
+            }
+        }
         
         // Start server on specified port
         try {
