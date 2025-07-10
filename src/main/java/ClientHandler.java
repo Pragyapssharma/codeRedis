@@ -48,6 +48,17 @@ class ClientHandler extends Thread {
                         case "REPLCONF":
                             out.write("+OK\r\n".getBytes());
                             break;
+                            
+                        case "PSYNC":
+                            if (args.size() == 3 && args.get(1).equals("?") && args.get(2).equals("-1")) {
+                                String replId = Config.masterReplId;
+                                String response = "+FULLRESYNC " + replId + " 0\r\n";
+                                out.write(response.getBytes());
+                                System.out.println("Sent FULLRESYNC to replica: " + response.trim());
+                            } else {
+                                out.write("-ERR unsupported PSYNC format\r\n".getBytes());
+                            }
+                            break;
 
                         case "ECHO":
                             if (args.size() >= 2) {
