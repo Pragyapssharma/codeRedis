@@ -126,7 +126,7 @@ class ClientHandler extends Thread {
 
         out.write("+OK\r\n".getBytes());
     }
-
+    
     private void handleGet(List<String> args, OutputStream out) throws IOException {
         if (args.size() != 2) {
             out.write("-ERR wrong number of arguments for 'GET'\r\n".getBytes());
@@ -136,21 +136,51 @@ class ClientHandler extends Thread {
         String key = args.get(1);
         KeyValue keyValue = keyValueStore.get(key);
 
-        if (keyValue != null) {
-            if (keyValue.hasExpired()) {
-                keyValueStore.remove(key); // optional
-                System.out.println("GET " + key + " => expired");
-                out.write("$-1\r\n".getBytes());
-            } else {
-                System.out.println("GET " + key + " => " + keyValue.value);
-                String value = keyValue.value;
-                out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
-            }
-        } else {
+        if (keyValue == null) {
             System.out.println("GET " + key + " => not found");
             out.write("$-1\r\n".getBytes());
+            return;
         }
+
+        if (keyValue.hasExpired()) {
+            System.out.println("GET " + key + " => expired");
+            keyValueStore.remove(key);
+            out.write("$-1\r\n".getBytes());
+            return;
+        }
+
+        // Key exists and is valid
+        String value = keyValue.value;
+        System.out.println("GET " + key + " => " + value);
+        out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
     }
+
+    
+
+//    private void handleGet(List<String> args, OutputStream out) throws IOException {
+//        if (args.size() != 2) {
+//            out.write("-ERR wrong number of arguments for 'GET'\r\n".getBytes());
+//            return;
+//        }
+//
+//        String key = args.get(1);
+//        KeyValue keyValue = keyValueStore.get(key);
+//
+//        if (keyValue != null) {
+//            if (keyValue.hasExpired()) {
+//                keyValueStore.remove(key); // optional
+//                System.out.println("GET " + key + " => expired");
+//                out.write("$-1\r\n".getBytes());
+//            } else {
+//                System.out.println("GET " + key + " => " + keyValue.value);
+//                String value = keyValue.value;
+//                out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
+//            }
+//        } else {
+//            System.out.println("GET " + key + " => not found");
+//            out.write("$-1\r\n".getBytes());
+//        }
+//    }
 
 
     static class KeyValue {
