@@ -168,6 +168,14 @@ public class Main {
                     masterSocket.close();
                     return;
                 }
+                
+             // Send PSYNC ? -1
+                String psyncCmd = "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n";
+                out.write(psyncCmd.getBytes("UTF-8"));
+                out.flush();
+                System.out.println("Sent PSYNC ? -1");
+                String psyncResp = readLine(in);
+                System.out.println("Received: " + psyncResp);
 
             } catch (IOException e) {
                 System.err.println("Failed to connect/send PING to master: " + e.getMessage());
