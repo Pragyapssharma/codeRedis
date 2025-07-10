@@ -8,12 +8,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 class ClientHandler extends Thread {
     private Socket clientSocket;
     private InputStream in;
     private OutputStream out;
     private static final Map<String, KeyValue> keyValueStore = new HashMap<>();
+    private static final List<OutputStream> replicaOutputs = new CopyOnWriteArrayList<>();
     private static final byte[] EMPTY_RDB_FILE = new byte[] {
     	    (byte) 0x52, (byte) 0x45, (byte) 0x44, (byte) 0x49, // REDI
     	    (byte) 0x53, (byte) 0x30, (byte) 0x30, (byte) 0x30, (byte) 0x39, // S0009
@@ -76,7 +78,8 @@ class ClientHandler extends Thread {
 
                                 // Mark this as replica
                                 isReplicaConnection = true;
-                                replicaOut = out;
+                                replicaOutputs.add(out);
+                                System.out.println("Added new replica connection. Total: " + replicaOutputs.size());
                             } else {
                                 out.write("-ERR unsupported PSYNC format\r\n".getBytes());
                             }
@@ -129,6 +132,16 @@ class ClientHandler extends Thread {
                 }
             } catch (IOException e) {
                 System.out.println("IOException during client socket cleanup: " + e.getMessage());
+            } finally {
+                try {
+                    if (clientSocket != null) clientSocket.close();
+                } catch (IOException e) {
+                    System.out.println("Socket close error: " + e.getMessage());
+                }
+                if (isReplicaConnection) {
+                    replicaOutputs.remove(out);
+                    System.out.println("Replica removed. Remaining: " + replicaOutputs.size());
+                }
             }
         }
     }
@@ -171,20 +184,24 @@ class ClientHandler extends Thread {
 
         out.write("+OK\r\n".getBytes());
         
-     // Propagate SET to replica if connected
-        if (replicaOut != null && out != replicaOut) {
-            try {
-                StringBuilder sb = new StringBuilder();
-                sb.append("*3\r\n");
-                sb.append("$3\r\nSET\r\n");
-                sb.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
-                sb.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
+     // Propagate to all replicas
+        StringBuilder command = new StringBuilder();
+        command.append("*3\r\n");
+        command.append("$3\r\nSET\r\n");
+        command.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
+        command.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
 
-                replicaOut.write(sb.toString().getBytes());
-                replicaOut.flush();
-            } catch (IOException e) {
-                System.out.println("Failed to send command to replica: " + e.getMessage());
-                replicaOut = null;
+        byte[] commandBytes = command.toString().getBytes();
+
+        for (OutputStream replicaOut : replicaOutputs) {
+            if (replicaOut != out) {
+                try {
+                    replicaOut.write(commandBytes);
+                    replicaOut.flush();
+                } catch (IOException e) {
+                    System.out.println("Replica write failed, removing: " + e.getMessage());
+                    replicaOutputs.remove(replicaOut);
+                }
             }
         }
     }
