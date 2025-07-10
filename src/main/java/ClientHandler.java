@@ -225,7 +225,7 @@ class ClientHandler extends Thread {
             }
 
             // Get full string and ensure it ends with CRLF
-            String infoBody = sb.toString() + "\r\n"; 
+            String infoBody = sb.toString();
 
             // Encode using UTF-8 and compute correct length
             byte[] infoBytes = infoBody.getBytes("UTF-8");
