@@ -176,38 +176,19 @@ public class RDBParser {
 		}
 	}
 	
-	private static String parseBulkString(DataInputStream in) throws IOException {
-	    long length = readLength(in);
-	    
-	    if (length == -1) {
-	        return null;
-	    }
+//	private static String parseBulkString(DataInputStream in) throws IOException {
+//	    long length = readLength(in);
+//	    
+//	    if (length == -1) {
+//	        return null;
+//	    }
+//
+//	    byte[] value = new byte[(int) length];
+//	    in.readFully(value);
+//
+//	    return new String(value);
+//	}
 
-	    byte[] value = new byte[(int) length];
-	    in.readFully(value);
 
-	    return new String(value);
-	}
-
-	private static void handleGetCommand(DataInputStream in) throws IOException {
-	    String result = parseBulkString(in);
-
-	    if (result == null) {
-	        System.out.println("Key does not exist.");
-	    } else {
-	        System.out.println("Got value: " + result);
-	    }
-	}
-
-	private static void handleArrayResponse(DataInputStream in) throws IOException {
-	    long count = readLength(in);
-
-	    for (long i = 0; i < count; i++) {
-	        String element = parseBulkString(in);  // Read each bulk string element
-	        System.out.println("Array element: " + element);
-	    }
-	}
-
-  
 	
 }

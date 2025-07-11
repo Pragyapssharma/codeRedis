@@ -1,3 +1,4 @@
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -176,6 +177,28 @@ public class Main {
                 System.out.println("Sent PSYNC ? -1");
                 String psyncResp = readLine(in);
                 System.out.println("Received: " + psyncResp);
+                
+             // Start a new thread to read propagated commands from master
+                new Thread(() -> {
+                    try {
+                        byte[] buffer = new byte[1024];
+                        int bytesRead;
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+                        while ((bytesRead = in.read(buffer)) != -1) {
+                            baos.write(buffer, 0, bytesRead);
+                            byte[] data = baos.toByteArray();
+                            int processed = processPropagatedCommands(data);
+                            if (processed > 0) {
+                                baos.reset();
+                                baos.write(data, processed, data.length - processed);
+                            }
+                        }
+                    } catch (IOException e) {
+                        System.err.println("Failed to read propagated commands: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }).start();  
 
             } catch (IOException e) {
                 System.err.println("Failed to connect/send PING to master: " + e.getMessage());
@@ -237,6 +260,32 @@ public class Main {
         return sb.toString();
     }
 
-    
+    private static int processPropagatedCommands(byte[] data) throws IOException {
+        int processed = 0;
+        RespParser parser = new RespParser(data);
+
+        while (parser.hasNext()) {
+            RespCommand command = parser.next();
+            if (command != null) {
+                processCommand(command);
+                processed += command.getRaw().length;
+            } else {
+                break;
+            }
+        }
+
+        return processed;
+    }
+
+    // Method to process a command
+    private static void processCommand(RespCommand command) {
+        if (command.getType() == RespCommand.Type.ARRAY) {
+            String[] elements = command.getArray();
+            if (elements[0].equalsIgnoreCase("SET")) {
+                ClientHandler.handleSet(elements, null); // null OutputStream => no reply
+            }
+            // Add more command types as needed
+        }
+    }
     
 }
