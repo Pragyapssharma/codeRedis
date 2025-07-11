@@ -35,6 +35,12 @@ class RespParser {
             case '+':
             	String simpleString = parseSimpleStringValue();
                 return new RespCommand(new String[] { simpleString });
+            case '-':  // Error message
+                String errorMessage = parseSimpleStringValue();
+                throw new IOException("RESP Error: " + errorMessage);
+            case ':':  // Integer type (not typically used in replication but can be useful)
+                String integerValue = parseSimpleStringValue();
+                return new RespCommand(new String[] { integerValue });
             default:
                 throw new IOException("Unsupported RESP type: " + (char) type);
         }
