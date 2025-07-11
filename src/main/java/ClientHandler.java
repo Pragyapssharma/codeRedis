@@ -343,6 +343,17 @@ class ClientHandler extends Thread {
     }
 
     private void processMasterHandshake(BufferedReader in, OutputStream out) throws IOException {
+    	
+    	// Send PING
+        String ping = "*1\r\n$4\r\nPING\r\n";
+        out.write(ping.getBytes());
+
+        // Wait for +PONG
+        String line = in.readLine();
+        if (line != null && line.startsWith("+PONG")) {
+            System.out.println("Received PONG from master");
+        }
+    	
         // Send REPLCONF listening-port
         String replconfPort = "*3\r\n" +
                               "$8\r\nREPLCONF\r\n" +
@@ -350,6 +361,12 @@ class ClientHandler extends Thread {
                               "$" + String.valueOf(Config.port).length() + "\r\n" +
                               Config.port + "\r\n";
         out.write(replconfPort.getBytes());
+        
+     // Wait for +OK
+        line = in.readLine();
+        if (line != null && line.startsWith("+OK")) {
+            System.out.println("Received OK for REPLCONF listening-port");
+        }
 
         // Send REPLCONF capa psync2
         String replconfCapa = "*3\r\n" +
@@ -357,6 +374,12 @@ class ClientHandler extends Thread {
                               "$4\r\ncapa\r\n" +
                               "$6\r\npsync2\r\n";
         out.write(replconfCapa.getBytes());
+        
+     // Wait for +OK
+        line = in.readLine();
+        if (line != null && line.startsWith("+OK")) {
+            System.out.println("Received OK for REPLCONF capa psync2");
+        }
 
         // Send PSYNC ? -1
         String psync = "*3\r\n" +
@@ -367,26 +390,26 @@ class ClientHandler extends Thread {
 
         out.flush();
 
-        String line;
-        // Wait for +FULLRESYNC
-        while ((line = in.readLine()) != null) {
-            if (line.startsWith("+FULLRESYNC")) {
-                System.out.println("Received FULLRESYNC: " + line);
-                break;
-            }
+     // Wait for +FULLRESYNC
+        line = in.readLine();
+        if (line != null && line.startsWith("+FULLRESYNC")) {
+            System.out.println("Received FULLRESYNC: " + line);
         }
 
-        // Expect RDB bulk string: $<length>
+     // Expect RDB bulk string: $<length>
         line = in.readLine();
         if (line != null && line.startsWith("$")) {
             int rdbLength = Integer.parseInt(line.substring(1));
-            char[] rdbBuffer = new char[rdbLength];
+            byte[] rdbBuffer = new byte[rdbLength];
+            InputStream inputStream = clientSocket.getInputStream();
             int totalRead = 0;
             while (totalRead < rdbLength) {
-                int read = in.read(rdbBuffer, totalRead, rdbLength - totalRead);
+                int read = inputStream.read(rdbBuffer, totalRead, rdbLength - totalRead);
                 if (read == -1) break;
                 totalRead += read;
             }
+            inputStream.read(); // Read \r
+            inputStream.read(); // Read \n
             System.out.println("Read " + totalRead + " RDB bytes from master.");
         }
     }
