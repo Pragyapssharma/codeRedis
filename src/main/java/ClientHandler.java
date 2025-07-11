@@ -179,8 +179,10 @@ class ClientHandler extends Thread {
 
     private void handleSet(List<String> args, OutputStream out) throws IOException {
         if (args.size() < 3) {
+        	if (out != null) {
             out.write(("-ERR wrong number of arguments for 'SET'\r\n").getBytes());
             return;
+        	}
         }
 
         String key = args.get(1);
