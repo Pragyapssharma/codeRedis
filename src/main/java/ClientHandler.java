@@ -25,7 +25,6 @@ class ClientHandler extends Thread {
     	    (byte) 0x00, (byte) 0x00  // padding (some implementations expect 18 bytes total)
     	};
 
-    private static OutputStream replicaOut = null;
     private boolean isReplicaConnection = false;
 
     public ClientHandler(Socket clientSocket) {
@@ -81,25 +80,26 @@ class ClientHandler extends Thread {
                             break;
                             
                         case "PSYNC":
-                        	if (args.size() == 3 && args.get(1).equals("?") && args.get(2).equals("-1")) {
-                                String replId = Config.masterReplId;
-                                String fullResync = "+FULLRESYNC " + replId + " 0\r\n";
-                                out.write(fullResync.getBytes());
-
-                                // Send empty RDB
-                                byte[] rdbBytes = EMPTY_RDB_FILE;
-                                String header = "$" + rdbBytes.length + "\r\n";
-                                out.write(header.getBytes());
-                                out.write(rdbBytes);
-                                System.out.println("Sent FULLRESYNC and empty RDB file (" + rdbBytes.length + " bytes)");
-
-                                // Mark this as replica
-                                isReplicaConnection = true;
-                                replicaOutputs.add(out);
-                                System.out.println("Added new replica connection. Total: " + replicaOutputs.size());
-                            } else {
-                                out.write("-ERR unsupported PSYNC format\r\n".getBytes());
-                            }
+//                        	if (args.size() == 3 && args.get(1).equals("?") && args.get(2).equals("-1")) {
+//                                String replId = Config.masterReplId;
+//                                String fullResync = "+FULLRESYNC " + replId + " 0\r\n";
+//                                out.write(fullResync.getBytes());
+//
+//                                // Send empty RDB
+//                                byte[] rdbBytes = EMPTY_RDB_FILE;
+//                                String header = "$" + rdbBytes.length + "\r\n";
+//                                out.write(header.getBytes());
+//                                out.write(rdbBytes);
+//                                System.out.println("Sent FULLRESYNC and empty RDB file (" + rdbBytes.length + " bytes)");
+//
+//                                // Mark this as replica
+//                                isReplicaConnection = true;
+//                                replicaOutputs.add(out);
+//                                System.out.println("Added new replica connection. Total: " + replicaOutputs.size());
+//                            } else {
+//                                out.write("-ERR unsupported PSYNC format\r\n".getBytes());
+//                            }
+                        	handlePsync(args, out);
                             break;
 
 
@@ -150,12 +150,7 @@ class ClientHandler extends Thread {
             } catch (IOException e) {
                 System.out.println("IOException during client socket cleanup: " + e.getMessage());
             } finally {
-                try {
-                    if (clientSocket != null) clientSocket.close();
-                } catch (IOException e) {
-                    System.out.println("Socket close error: " + e.getMessage());
-                }
-                if (isReplicaConnection) {
+            	if (isReplicaConnection) {
                     replicaOutputs.remove(out);
                     System.out.println("Replica removed. Remaining: " + replicaOutputs.size());
                 }
@@ -217,12 +212,12 @@ class ClientHandler extends Thread {
 
         for (OutputStream replicaOut : replicaOutputs) {
             if (replicaOut != out) {
-                try {
-                    replicaOut.write(commandBytes);
+            	try {
+                    replicaOut.write(commandBytes); // Propagate the SET command to each replica
                     replicaOut.flush();
                 } catch (IOException e) {
                     System.out.println("Replica write failed, removing: " + e.getMessage());
-                    replicaOutputs.remove(replicaOut);
+                    replicaOutputs.remove(replicaOut);  // Handle replica disconnection
                 }
             }
         }
@@ -242,105 +237,129 @@ class ClientHandler extends Thread {
             System.out.println("GET " + key + " => not found or expired");
             out.write("$-1\r\n".getBytes());  // RESP nil bulk string
             return;
-        }
-
+        } else {
         String value = kv.value;  // direct field access, or use kv.getValue() if you add getter
         out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
-    }
-
-    static class KeyValue {
-        String value;
-        long expirationTimestamp;
-
-        KeyValue(String value, long expirationTimestamp) {
-            this.value = value;
-            this.expirationTimestamp = expirationTimestamp;
-        }
-        
-        boolean hasExpired() {
-            long now = System.currentTimeMillis();
-            boolean expired = expirationTimestamp > 0 && now > expirationTimestamp;
-            System.out.printf("Checking if expired: now=%d, expire=%d, expired=%b%n", now, expirationTimestamp, expired);
-            return expired;
         }
     }
+
     
-    private void handleConfig(List<String> args, OutputStream out) throws IOException {
-        if (args.size() >= 3 && args.get(1).equalsIgnoreCase("GET")) {
-            String param = args.get(2).toLowerCase();
-            String value;
+    public static void handleConfig(List<String> args, OutputStream out) throws IOException {
+        if (args.size() < 2) {
+            out.write(("-ERR wrong number of arguments for 'CONFIG'\r\n").getBytes());
+            return;
+        }
 
-            switch (param) {
+        String subCommand = args.get(1).toLowerCase();
+        if ("get".equals(subCommand)) {
+            if (args.size() < 3) {
+                out.write(("-ERR wrong number of arguments for 'CONFIG GET'\r\n").getBytes());
+                return;
+            }
+
+            String configKey = args.get(2);
+            switch (configKey) {
                 case "dir":
-                    value = Config.dir;
+                    out.write(("$" + Config.dir.length() + "\r\n" + Config.dir + "\r\n").getBytes());
                     break;
                 case "dbfilename":
-                    value = Config.dbFilename;
+                    out.write(("$" + Config.dbFilename.length() + "\r\n" + Config.dbFilename + "\r\n").getBytes());
+                    break;
+                case "port":
+                    out.write(("$" + String.valueOf(Config.port).length() + "\r\n" + Config.port + "\r\n").getBytes());
+                    break;
+                case "replica":
+                    out.write(("$" + String.valueOf(Config.isReplica).length() + "\r\n" + Config.isReplica + "\r\n").getBytes());
                     break;
                 default:
-                    value = "";
+                    out.write(("-ERR unknown configuration parameter\r\n").getBytes());
                     break;
             }
-
-            // RESP array response with key and value
-            String response = "*2\r\n" +
-                              "$" + param.length() + "\r\n" + param + "\r\n" +
-                              "$" + value.length() + "\r\n" + value + "\r\n";
-            out.write(response.getBytes());
         } else {
-            out.write("-ERR wrong number of arguments for CONFIG GET\r\n".getBytes());
+            out.write(("-ERR unknown CONFIG subcommand\r\n").getBytes());
         }
     }
     
-    private void handleKeys(List<String> args, OutputStream out) throws IOException {
-
-    	List<String> filteredKeys = new ArrayList<>();
-
+    public static void handleKeys(List<String> args, OutputStream out) throws IOException {
+        StringBuilder keysResponse = new StringBuilder("*" + keyValueStore.size() + "\r\n");
         for (String key : keyValueStore.keySet()) {
-            KeyValue kv = keyValueStore.get(key);
-            if (!kv.hasExpired()) {
-                filteredKeys.add(key);
-            }
+            keysResponse.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
         }
-        StringBuilder response = new StringBuilder("*" + filteredKeys.size() + "\r\n");
-        for (String key : filteredKeys) {
-            response.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
-        }
-
-
-        out.write(response.toString().getBytes());
+        out.write(keysResponse.toString().getBytes());
     }
     
-    private void handleInfo(List<String> args, OutputStream out) throws IOException {
-        if (args.size() >= 2 && args.get(1).equalsIgnoreCase("replication")) {
-            StringBuilder sb = new StringBuilder();
-
-            sb.append("role:").append(Config.isReplica ? "slave" : "master").append("\r\n");
-            if (!Config.isReplica) {
-                sb.append("master_replid:").append(Config.masterReplId).append("\r\n");
-                sb.append("master_repl_offset:").append(Config.masterReplOffset).append("\r\n");
+//    private void handleInfo(List<String> args, OutputStream out) throws IOException {
+//        if (args.size() >= 2 && args.get(1).equalsIgnoreCase("replication")) {
+//            StringBuilder sb = new StringBuilder();
+//
+//            sb.append("role:").append(Config.isReplica ? "slave" : "master").append("\r\n");
+//            if (!Config.isReplica) {
+//                sb.append("master_replid:").append(Config.masterReplId).append("\r\n");
+//                sb.append("master_repl_offset:").append(Config.masterReplOffset).append("\r\n");
+//            }
+//
+//            String infoBody = sb.toString();
+//            byte[] infoBytes = infoBody.getBytes("UTF-8");
+//            String header = "$" + infoBytes.length + "\r\n";
+//
+//            
+//            System.out.println("INFO output (" + infoBytes.length + " bytes):");
+//            for (String line : infoBody.split("\r\n")) {
+//                System.out.println("> " + line + " [\\r\\n]");
+//            }
+//            System.out.println("Header to send: " + header.replace("\r", "\\r").replace("\n", "\\n"));
+//            System.out.println("Full payload length: " + infoBytes.length);
+//            System.out.println("Sending full RESP:\n" + header + infoBody);
+//
+//            out.write(header.getBytes("UTF-8"));
+//            out.write(infoBytes);
+//            out.write("\r\n".getBytes("UTF-8"));
+//        } else {
+//            out.write("-ERR unsupported INFO section\r\n".getBytes());
+//        }
+//    }
+    
+    public static void handleInfo(List<String> args, OutputStream out) throws IOException {
+        // Simple INFO command response (basic server information)
+        String info = "# Server\r\n" +
+                "version=1.0\r\n" +
+                "uptime=12345\r\n" +
+                "# Replication\r\n" +
+                "role=" + (Config.isReplica ? "slave" : "master") + "\r\n";
+        out.write(("$" + info.length() + "\r\n" + info + "\r\n").getBytes());
+    }
+    
+    public static void handlePsync(List<String> args, OutputStream out) throws IOException {
+        if (Config.isReplica) {
+            // This server is in replica mode
+            if (args.size() < 3) {
+                out.write(("-ERR wrong number of arguments for 'PSYNC'\r\n").getBytes());
+                return;
             }
 
-            String infoBody = sb.toString();
-            byte[] infoBytes = infoBody.getBytes("UTF-8");
-            String header = "$" + infoBytes.length + "\r\n";
+            String replicationId = args.get(1);  // The replication ID provided by the master
+            long offset = Long.parseLong(args.get(2));  // The replication offset from the master
 
-            
-            System.out.println("INFO output (" + infoBytes.length + " bytes):");
-            for (String line : infoBody.split("\r\n")) {
-                System.out.println("> " + line + " [\\r\\n]");
-            }
-            System.out.println("Header to send: " + header.replace("\r", "\\r").replace("\n", "\\n"));
-            System.out.println("Full payload length: " + infoBytes.length);
-            System.out.println("Sending full RESP:\n" + header + infoBody);
+            // Debugging the received PSYNC request
+            System.out.println("Replica received PSYNC: replicationId=" + replicationId + ", offset=" + offset);
 
-            out.write(header.getBytes("UTF-8"));
-            out.write(infoBytes);
-            out.write("\r\n".getBytes("UTF-8"));
+            // Responding with FULLRESYNC
+            String syncResponse = "+FULLRESYNC " + Config.masterReplId + " " + Config.masterReplOffset + "\r\n";
+            out.write(syncResponse.getBytes());  // Send +FULLRESYNC message to the replica
+
+            // Send simulated empty RDB file to the replica
+            out.write(EMPTY_RDB_FILE);  // Here, we send an empty RDB file (use actual RDB bytes if needed)
+
+            // Add the current OutputStream to the replica outputs for future propagation of commands
+            replicaOutputs.add(out);
+            System.out.println("Replica added: " + replicaOutputs.size() + " total replicas connected.");
         } else {
-            out.write("-ERR unsupported INFO section\r\n".getBytes());
+            // If not in replica mode, return an error message
+            out.write(("-ERR PSYNC is only valid for replica mode\r\n").getBytes());
         }
     }
+
+
 
     private void processMasterHandshake(BufferedReader in, OutputStream out) throws IOException {
     	
@@ -414,6 +433,8 @@ class ClientHandler extends Thread {
         }
     }
 
-
+    private static void sendErrorResponse(OutputStream out, String error) throws IOException {
+        out.write(("-ERR " + error + "\r\n").getBytes());
+    }
     
 }
