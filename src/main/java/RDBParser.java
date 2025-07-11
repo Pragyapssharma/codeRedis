@@ -175,4 +175,29 @@ public class RDBParser {
 			throw new IOException("Invalid length prefix");
 		}
 	}
+	
+	// New method to handle bulk string responses properly (updated handling)
+    private static String parseBulkString(DataInputStream in) throws IOException {
+        long length = readLength(in);  // read the length prefix, now long type
+        if (length == -1) {
+            return null;  // Redis returns NULL for non-existing keys
+        }
+
+        byte[] value = new byte[(int) length];  // cast long to int here, since length fits into int
+        in.readFully(value);
+
+        // Convert byte array to string
+        return new String(value);
+    }
+
+    // New method to handle array responses (for multi-bulk replies)
+    private static void handleArrayResponse(DataInputStream in) throws IOException {
+        long count = readLength(in);  // Read the count of elements in the array, now long type
+        for (long i = 0; i < count; i++) {
+            String element = parseBulkString(in); // Read each element (bulk string)
+            System.out.println("Array element: " + element);
+        }
+    }
+  
+	
 }
