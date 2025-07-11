@@ -23,21 +23,25 @@ class RespParser {
 
         switch (type) {
             case '*':
-                return parseArray();
+            	int length = parseLength();
+                String[] elements = new String[length];
+                for (int i = 0; i < length; i++) {
+                    elements[i] = parseString();
+                }
+                return new RespCommand(elements);
+            case '$':
+            	String value = parseString();
+                return new RespCommand(new String[] { value });
             default:
                 throw new IOException("Unsupported RESP type: " + (char) type);
         }
     }
 
-    private RespCommand parseArray() throws IOException {
+    private String parseString() throws IOException {
         int length = parseLength();
-        String[] elements = new String[length];
-
-        for (int i = 0; i < length; i++) {
-            elements[i] = parseBulkString();
-        }
-
-        return new RespCommand(elements);
+        String value = new String(data, pos, length);
+        pos += length + 2; // Skip \r\n
+        return value;
     }
 
     private int parseLength() throws IOException {
@@ -54,23 +58,4 @@ class RespParser {
         return Integer.parseInt(sb.substring(1));
     }
 
-    private String parseBulkString() throws IOException {
-        int length = parseLength();
-        String value = new String(data, pos, length);
-        pos += length + 2; // Skip \r\n
-        return value;
-    }
-}
-
-// RespCommand class
-class RespCommand {
-    private String[] array;
-
-    public RespCommand(String[] array) {
-        this.array = array;
-    }
-
-    public String[] getArray() {
-        return array;
-    }
 }
