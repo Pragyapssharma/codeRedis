@@ -408,8 +408,8 @@ class ClientHandler extends Thread {
                 if (read == -1) break;
                 totalRead += read;
             }
-            inputStream.read(); // Read \r
-            inputStream.read(); // Read \n
+            inputStream.read();
+            inputStream.read();
             System.out.println("Read " + totalRead + " RDB bytes from master.");
         }
     }
