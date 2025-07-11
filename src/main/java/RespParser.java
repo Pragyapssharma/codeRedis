@@ -33,7 +33,8 @@ class RespParser {
             	String value = parseString();
                 return new RespCommand(new String[] { value });
             case '+':
-                return parseSimpleString();
+            	String simpleString = parseSimpleStringValue();
+                return new RespCommand(new String[] { simpleString });
             default:
                 throw new IOException("Unsupported RESP type: " + (char) type);
         }
@@ -63,7 +64,7 @@ class RespParser {
         return Integer.parseInt(sb.substring(1));
     }
     
-    private RespCommand parseSimpleString() throws IOException {
+    private String parseSimpleStringValue() throws IOException {
         StringBuilder sb = new StringBuilder();
         while (pos < data.length) {
             byte b = data[pos];
@@ -74,7 +75,7 @@ class RespParser {
             }
             sb.append((char) b);
         }
-        return new RespCommand(new String[] { sb.toString() });
+        return sb.toString();
     }
 
 }
