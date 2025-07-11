@@ -84,4 +84,20 @@ class RespParser {
         return sb.toString();
     }
 
+    public void handleReplicationCommand(RespCommand command) throws IOException {
+        String[] elements = command.getArray();
+
+        if (elements[0].equals("FULLRESYNC")) {
+            String replicationId = elements[1];
+            long offset = Long.parseLong(elements[2]);
+
+            // Handle the FULLRESYNC logic (you can use replicationId and offset here)
+            System.out.println("Full Resync received from master: " + replicationId + " offset: " + offset);
+            // Example logic, like initializing a new RDB file or syncing
+            // You can store the replication state here or handle command propagation
+        } else {
+            System.out.println("Unsupported replication command: " + elements[0]);
+        }
+    }
+    
 }
