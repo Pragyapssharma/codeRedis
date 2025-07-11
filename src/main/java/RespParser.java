@@ -39,8 +39,11 @@ class RespParser {
 
     private String parseString() throws IOException {
         int length = parseLength();
+        if (length == -1) {
+            return null;
+        }
         String value = new String(data, pos, length);
-        pos += length + 2; // Skip \r\n
+        pos += length + 2;
         return value;
     }
 
