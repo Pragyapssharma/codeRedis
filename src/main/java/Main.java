@@ -7,6 +7,9 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
@@ -268,7 +271,7 @@ public class Main {
             RespCommand command = parser.next();
             if (command != null) {
                 processCommand(command);
-                processed += command.getRaw().length;
+                processed += calculateCommandLength(command.getArray());
             } else {
                 break;
             }
@@ -277,15 +280,26 @@ public class Main {
         return processed;
     }
 
+    private static int calculateCommandLength(String[] array) {
+        int length = 0;
+        for (String s : array) {
+            length += s.length() + 2; // Approximate length
+        }
+        return length + 1; // For the '*' character
+    }
+    
     // Method to process a command
     private static void processCommand(RespCommand command) {
-        if (command.getType() == RespCommand.Type.ARRAY) {
-            String[] elements = command.getArray();
-            if (elements[0].equalsIgnoreCase("SET")) {
-                ClientHandler.handleSet(elements, null); // null OutputStream => no reply
+        String[] elements = command.getArray();
+        if (elements[0].equalsIgnoreCase("SET")) {
+            List<String> args = new ArrayList<>(Arrays.asList(elements));
+            try {
+                ClientHandler.handleSet(args, null); // null OutputStream => no reply
+            } catch (IOException e) {
+                System.err.println("Error handling SET command: " + e.getMessage());
             }
-            // Add more command types as needed
         }
+        // Add more command types as needed
     }
     
 }
