@@ -176,28 +176,38 @@ public class RDBParser {
 		}
 	}
 	
-	// New method to handle bulk string responses properly (updated handling)
-    private static String parseBulkString(DataInputStream in) throws IOException {
-        long length = readLength(in);  // read the length prefix, now long type
-        if (length == -1) {
-            return null;  // Redis returns NULL for non-existing keys
-        }
+	private static String parseBulkString(DataInputStream in) throws IOException {
+	    long length = readLength(in);
+	    
+	    if (length == -1) {
+	        return null;
+	    }
 
-        byte[] value = new byte[(int) length];  // cast long to int here, since length fits into int
-        in.readFully(value);
+	    byte[] value = new byte[(int) length];
+	    in.readFully(value);
 
-        // Convert byte array to string
-        return new String(value);
-    }
+	    return new String(value);
+	}
 
-    // New method to handle array responses (for multi-bulk replies)
-    private static void handleArrayResponse(DataInputStream in) throws IOException {
-        long count = readLength(in);  // Read the count of elements in the array, now long type
-        for (long i = 0; i < count; i++) {
-            String element = parseBulkString(in); // Read each element (bulk string)
-            System.out.println("Array element: " + element);
-        }
-    }
+	private static void handleGetCommand(DataInputStream in) throws IOException {
+	    String result = parseBulkString(in);
+
+	    if (result == null) {
+	        System.out.println("Key does not exist.");
+	    } else {
+	        System.out.println("Got value: " + result);
+	    }
+	}
+
+	private static void handleArrayResponse(DataInputStream in) throws IOException {
+	    long count = readLength(in);
+
+	    for (long i = 0; i < count; i++) {
+	        String element = parseBulkString(in);  // Read each bulk string element
+	        System.out.println("Array element: " + element);
+	    }
+	}
+
   
 	
 }
