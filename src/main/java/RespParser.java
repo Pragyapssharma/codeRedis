@@ -8,6 +8,10 @@ class RespParser {
         this.data = data;
         this.pos = 0;
     }
+    
+    public int getPos() {
+        return pos;
+    }
 
     public boolean hasNext() {
         return pos < data.length;
@@ -17,6 +21,7 @@ class RespParser {
         if (!hasNext()) {
             return null;
         }
+        if (pos >= data.length) return null;
 
         byte type = data[pos];
         pos++;
@@ -26,7 +31,9 @@ class RespParser {
             	int length = parseLength();
                 String[] elements = new String[length];
                 for (int i = 0; i < length; i++) {
-                    elements[i] = parseString();
+//                    elements[i] = parseString();
+                    elements[i] = parseBulkString();
+                    if (elements[i] == null) throw new IOException("Null element in array");
                 }
                 return new RespCommand(elements);
             case '$':
@@ -55,20 +62,48 @@ class RespParser {
         pos += length + 2;
         return value;
     }
-
-    private int parseLength() throws IOException {
-        StringBuilder sb = new StringBuilder();
-        while (pos < data.length) {
-            byte b = data[pos];
-            pos++;
-            if (b == '\r') {
-                pos++; // Skip \n
-                break;
-            }
-            sb.append((char) b);
-        }
-        return Integer.parseInt(sb.toString().substring(1));
+    
+    private String parseBulkString() throws IOException {
+        int len = parseLength();
+        if (len == -1) return null;
+        if (pos + len + 2 > data.length) throw new IOException("Incomplete bulk data");
+        String val = new String(data, pos, len);
+        pos += len + 2;
+        return val;
     }
+    
+    private int parseLength() throws IOException {
+        String num = parseLine();
+        return Integer.parseInt(num);
+    }
+    
+    private String parseLine() throws IOException {
+        if (pos >= data.length) throw new IOException("Incomplete line");
+        int start = pos;
+        while (pos < data.length) {
+            if (data[pos] == '\r' && pos + 1 < data.length && data[pos+1] == '\n') {
+                String line = new String(data, start, pos - start);
+                pos += 2;
+                return line;
+            }
+            pos++;
+        }
+        throw new IOException("Line not terminated");
+    }
+
+//    private int parseLength() throws IOException {
+//        StringBuilder sb = new StringBuilder();
+//        while (pos < data.length) {
+//            byte b = data[pos];
+//            pos++;
+//            if (b == '\r') {
+//                pos++; // Skip \n
+//                break;
+//            }
+//            sb.append((char) b);
+//        }
+//        return Integer.parseInt(sb.toString().substring(1));
+//    }
     
     private String parseSimpleStringValue() throws IOException {
         StringBuilder sb = new StringBuilder();
@@ -99,5 +134,6 @@ class RespParser {
             System.out.println("Unsupported replication command: " + elements[0]);
         }
     }
+
     
 }

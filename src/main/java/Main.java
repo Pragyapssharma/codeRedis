@@ -266,16 +266,32 @@ public class Main {
     private static int processPropagatedCommands(byte[] data) throws IOException {
         int processed = 0;
         RespParser parser = new RespParser(data);
-
-        while (parser.hasNext()) {
-            RespCommand command = parser.next();
-            if (command != null) {
-                processCommand(command);
-                processed += calculateCommandLength(command.getArray());
-            } else {
+        
+        while (true) {
+            int beforePos = parser.getPos();  // implement this method
+            RespCommand cmd;
+            try {
+                cmd = parser.next();
+            } catch (IOException e) {
+                // not enough data or unknown type
                 break;
             }
+            if (cmd == null) {
+                break;
+            }
+            processCommand(cmd);
+            processed = parser.getPos();
         }
+
+//        while (parser.hasNext()) {
+//            RespCommand command = parser.next();
+//            if (command != null) {
+//                processCommand(command);
+//                processed += calculateCommandLength(command.getArray());
+//            } else {
+//                break;
+//            }
+//        }
 
         return processed;
     }
