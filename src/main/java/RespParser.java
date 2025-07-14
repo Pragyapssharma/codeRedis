@@ -22,7 +22,7 @@ class RespParser {
         if (!hasNext()) {
             return null;
         }
-        if (pos >= data.length) return null;
+        
 
         byte type = data[pos];
         System.out.println("DEBUG: Received type: " + (char) type);
