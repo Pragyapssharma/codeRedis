@@ -29,9 +29,9 @@ class RespParser {
         switch (type) {
             case '*':
             	int length = parseLength();
-                String[] elements = new String[length];
+            	RespCommand[] elements = new RespCommand[length];
                 for (int i = 0; i < length; i++) {
-                    elements[i] = parseString();
+                    elements[i] = next();
                     if (elements[i] == null) throw new IOException("Null element in array");
                 }
                 return new RespCommand(elements);
