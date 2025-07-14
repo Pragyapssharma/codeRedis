@@ -67,7 +67,7 @@ class RespParser {
             }
             sb.append((char) b);
         }
-        return Integer.parseInt(sb.substring(1));
+        return Integer.parseInt(sb.toString().substring(1));
     }
     
     private String parseSimpleStringValue() throws IOException {

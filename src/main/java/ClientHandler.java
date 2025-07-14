@@ -430,6 +430,54 @@ class ClientHandler extends Thread {
             inputStream.read();
             inputStream.read();
             System.out.println("Read " + totalRead + " RDB bytes from master.");
+            
+         // After RDB loading, start reading streaming commands from the master
+            System.out.println("Start reading replication stream...");
+
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            List<Byte> commandBuffer = new ArrayList<>();
+
+            inputStream = clientSocket.getInputStream();
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                for (int i = 0; i < bytesRead; i++) {
+                    commandBuffer.add(buffer[i]);
+                }
+
+                // Convert list to byte array
+                byte[] commandBytes = new byte[commandBuffer.size()];
+                for (int i = 0; i < commandBuffer.size(); i++) {
+                    commandBytes[i] = commandBuffer.get(i);
+                }
+
+                try {
+                    RespParser parser = new RespParser(commandBytes);
+                    while (parser.hasNext()) {
+                        RespCommand cmd = parser.next();
+                        if (cmd == null) break;
+
+                        String[] parts = cmd.getArray();
+                        String command = parts[0].toUpperCase();
+
+                        switch (command) {
+                            case "SET":
+                                ClientHandler.handleSet(List.of(parts), null); // null = no reply
+                                break;
+                            default:
+                                System.out.println("Unhandled replication command: " + command);
+                                break;
+                        }
+                    }
+
+                    // Clear buffer if successfully parsed
+                    commandBuffer.clear();
+                } catch (Exception e) {
+                    // Not enough data? Wait for more
+                    System.out.println("Partial command received, waiting for more data: " + e.getMessage());
+                }
+            }
+
         }
     }
 
