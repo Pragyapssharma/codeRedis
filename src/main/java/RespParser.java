@@ -31,6 +31,19 @@ class RespParser {
         System.out.println("DEBUG: Raw Data at position " + pos + ": " + Arrays.toString(data));
 
         switch (type) {
+        	case '+': // Simple string (e.g., response like PONG from a PING command)
+        		return parseSimpleStringResponse();
+//        	String simpleString = parseSimpleStringValue();
+//        	System.out.println("DEBUG: Simple String: " + simpleString);
+//            return new RespCommand(new String[] { simpleString });
+        	
+        	case '$': // Bulk string (e.g., GET foo)
+            	return parseBulkStringResponse();
+//            	String value = parseString();
+//            	System.out.println("DEBUG: Bulk String value: " + value);
+//                return new RespCommand(new String[] { value });
+        	
+        	
             case '*': // Multi-element responses (e.g., MGET, LRANGE)
             	return parseArrayResponse();
 //            	int length = parseLength();
@@ -41,26 +54,20 @@ class RespParser {
 //                    if (elements[i] == null) throw new IOException("Null element in array");
 //                }
 //                return new RespCommand(elements);
-            case '$': // Bulk string (e.g., GET foo)
-            	return parseBulkStringResponse();
-//            	String value = parseString();
-//            	System.out.println("DEBUG: Bulk String value: " + value);
-//                return new RespCommand(new String[] { value });
-            case '+': // Simple string (e.g., response like PONG from a PING command)
-            	return parseSimpleStringResponse();
-//            	String simpleString = parseSimpleStringValue();
-//            	System.out.println("DEBUG: Simple String: " + simpleString);
-//                return new RespCommand(new String[] { simpleString });
+            
+            
             case '-':  // Error message
 //            	return parseErrorResponse();
                 String errorMessage = parseSimpleStringValue();
                 System.out.println("DEBUG: Error message: " + errorMessage);
                 throw new IOException("RESP Error: " + errorMessage);
+                
             case ':':  // Integer type (not typically used in replication but can be useful)
 //            	return parseIntegerResponse();
                 String integerValue = parseSimpleStringValue();
                 System.out.println("DEBUG: Integer value: " + integerValue);
                 return new RespCommand(new String[] { integerValue });
+                
             default:
                 throw new IOException("Unsupported RESP type: " + (char) type);
         }
