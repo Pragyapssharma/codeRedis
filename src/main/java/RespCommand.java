@@ -40,4 +40,11 @@ class RespCommand {
         return null;
     }
     
+    public static String bulkString(String value) {
+        if (value == null) {
+            return "$-1\r\n"; // Null bulk string for missing keys
+        }
+        return "$" + value.length() + "\r\n" + value + "\r\n";
+    }
+    
 }

@@ -233,15 +233,37 @@ class ClientHandler extends Thread {
         String key = args.get(1);
         KeyValue kv = keyValueStore.get(key);
 
+        String response;
         if (kv == null || kv.hasExpired()) {
             System.out.println("GET " + key + " => not found or expired");
-            out.write("$-1\r\n".getBytes());  // RESP nil bulk string
-            return;
+            response = RespCommand.bulkString(null); // will return $-1\r\n
         } else {
-        String value = kv.value;  // direct field access, or use kv.getValue() if you add getter
-        out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
+            response = RespCommand.bulkString(kv.value); // formatted response
         }
+
+        System.out.println("Sending GET response: " + response.replace("\r\n", "\\r\\n"));
+        out.write(response.getBytes());
     }
+    
+//    private void handleGet(List<String> args, OutputStream out) throws IOException {
+//        if (args.size() != 2) {
+//            out.write("-ERR wrong number of arguments for 'GET'\r\n".getBytes());
+//            return;
+//        }
+//
+//        String key = args.get(1);
+//        KeyValue kv = keyValueStore.get(key);
+//        
+//        if (kv == null || kv.hasExpired()) {
+//            System.out.println("GET " + key + " => not found or expired");
+//            out.write("$-1\r\n".getBytes());  // RESP nil bulk string
+//            return;
+//        } else {
+//        String value = kv.value;  // direct field access, or use kv.getValue() if you add getter
+//        System.out.println("Debug : Sending GET response: $" + value.length() + "\\r\\n" + value);
+//        out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
+//        }
+//    }
 
     
     public static void handleConfig(List<String> args, OutputStream out) throws IOException {
