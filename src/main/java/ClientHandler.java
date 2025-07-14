@@ -453,19 +453,15 @@ class ClientHandler extends Thread {
             inputStream.read();
             System.out.println("Read " + totalRead + " RDB bytes from master.");
             
-         // Start separate thread for replication command listening
             new Thread(() -> {
-                System.out.println("Start reading replication stream...");
                 try {
-//                    InputStream inputStream = clientSocket.getInputStream();
-                	Socket masterSocket = new Socket("localhost", 6379); // Or masterHost/masterPort
-                    InputStream masterInput = masterSocket.getInputStream();
+                    Socket masterSocket = new Socket("localhost", 6379);  // replace if using dynamic config
+                    InputStream masterIn = masterSocket.getInputStream();
                     byte[] buffer = new byte[8192];
-
                     List<Byte> commandBuffer = new ArrayList<>();
 
                     int bytesRead;
-                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    while ((bytesRead = masterIn.read(buffer)) != -1) {
                         for (int i = 0; i < bytesRead; i++) {
                             commandBuffer.add(buffer[i]);
                         }
@@ -480,28 +476,29 @@ class ClientHandler extends Thread {
                             while (parser.hasNext()) {
                                 RespCommand cmd = parser.next();
                                 if (cmd == null) break;
-
                                 String[] parts = cmd.getArray();
                                 String command = parts[0].toUpperCase();
 
                                 if ("SET".equals(command)) {
-                                    ClientHandler.handleSet(List.of(parts), null); // silently apply
+                                    ClientHandler.handleSet(List.of(parts), null); // silent replication
                                 } else {
                                     System.out.println("Unhandled replication command: " + command);
                                 }
                             }
 
-                            commandBuffer.clear(); // clean parsed data
+                            commandBuffer.clear(); // ready for next command
                         } catch (Exception e) {
-                            System.out.println("Waiting for complete replication command: " + e.getMessage());
+                            System.out.println("Partial replication command, waiting: " + e.getMessage());
                         }
                     }
-                } catch (IOException ioException) {
-                    System.out.println("Replication listener stopped: " + ioException.getMessage());
+                } catch (IOException e) {
+                    System.out.println("Replication stream error: " + e.getMessage());
                 }
             }).start();
+            
         }
-            }
+        }
+
 
         
     
