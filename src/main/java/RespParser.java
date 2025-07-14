@@ -58,17 +58,13 @@ class RespParser {
             return null;
         }
         
-        if (pos >= data.length) {
-            throw new IOException("No more data to read length prefix");
+        if (pos + length + 2 >= data.length) {
+            throw new IOException("Invalid or incomplete bulk string");
         }
 
-//        if (length < 0 || pos + length + 2 > data.length) {
+//        if (pos >= data.length || pos + length + 2 > data.length) {
 //            throw new IOException("Invalid or incomplete bulk string length: " + length);
 //        }
-        
-        if (pos >= data.length || pos + length + 2 > data.length) {
-            throw new IOException("Invalid or incomplete bulk string length: " + length);
-        }
         
         String value = new String(data, pos, length);
         pos += length;
