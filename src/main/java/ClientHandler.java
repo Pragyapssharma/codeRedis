@@ -458,7 +458,10 @@ class ClientHandler extends Thread {
                 System.out.println("Start reading replication stream...");
                 try {
 //                    InputStream inputStream = clientSocket.getInputStream();
+                	Socket masterSocket = new Socket("localhost", 6379); // Or masterHost/masterPort
+                    InputStream masterInput = masterSocket.getInputStream();
                     byte[] buffer = new byte[8192];
+
                     List<Byte> commandBuffer = new ArrayList<>();
 
                     int bytesRead;
