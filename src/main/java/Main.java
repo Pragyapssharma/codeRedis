@@ -192,10 +192,20 @@ public class Main {
                             baos.write(buffer, 0, bytesRead);
                             byte[] data = baos.toByteArray();
                             int processed = processPropagatedCommands(data);
-                            if (processed > 0) {
+//                            if (processed > 0) {
+//                                baos.reset();
+//                                baos.write(data, processed, data.length - processed);
+//                            }
+                            if (processed > 0 && processed <= data.length) {
                                 baos.reset();
                                 baos.write(data, processed, data.length - processed);
+                            } else if (processed == 0) {
+                                // Not enough data to parse a full command, wait for more
+                            } else {
+                                System.err.println("Invalid processed length: " + processed + " (data length: " + data.length + ")");
+                                baos.reset(); // Avoid repeated crashes
                             }
+
                         }
                     } catch (IOException e) {
                         System.err.println("Failed to read propagated commands: " + e.getMessage());
