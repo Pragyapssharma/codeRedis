@@ -453,55 +453,55 @@ class ClientHandler extends Thread {
             inputStream.read();
             System.out.println("Read " + totalRead + " RDB bytes from master.");
             
-         // After RDB loading, start reading streaming commands from the master
-            System.out.println("Start reading replication stream...");
-
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            List<Byte> commandBuffer = new ArrayList<>();
-
-            inputStream = clientSocket.getInputStream();
-
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                for (int i = 0; i < bytesRead; i++) {
-                    commandBuffer.add(buffer[i]);
-                }
-
-                // Convert list to byte array
-                byte[] commandBytes = new byte[commandBuffer.size()];
-                for (int i = 0; i < commandBuffer.size(); i++) {
-                    commandBytes[i] = commandBuffer.get(i);
-                }
-
+         // Start separate thread for replication command listening
+            new Thread(() -> {
+                System.out.println("Start reading replication stream...");
                 try {
-                    RespParser parser = new RespParser(commandBytes);
-                    while (parser.hasNext()) {
-                        RespCommand cmd = parser.next();
-                        if (cmd == null) break;
+//                    InputStream inputStream = clientSocket.getInputStream();
+                    byte[] buffer = new byte[8192];
+                    List<Byte> commandBuffer = new ArrayList<>();
 
-                        String[] parts = cmd.getArray();
-                        String command = parts[0].toUpperCase();
+                    int bytesRead;
+                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                        for (int i = 0; i < bytesRead; i++) {
+                            commandBuffer.add(buffer[i]);
+                        }
 
-                        switch (command) {
-                            case "SET":
-                                ClientHandler.handleSet(List.of(parts), null); // null = no reply
-                                break;
-                            default:
-                                System.out.println("Unhandled replication command: " + command);
-                                break;
+                        byte[] commandBytes = new byte[commandBuffer.size()];
+                        for (int i = 0; i < commandBuffer.size(); i++) {
+                            commandBytes[i] = commandBuffer.get(i);
+                        }
+
+                        try {
+                            RespParser parser = new RespParser(commandBytes);
+                            while (parser.hasNext()) {
+                                RespCommand cmd = parser.next();
+                                if (cmd == null) break;
+
+                                String[] parts = cmd.getArray();
+                                String command = parts[0].toUpperCase();
+
+                                if ("SET".equals(command)) {
+                                    ClientHandler.handleSet(List.of(parts), null); // silently apply
+                                } else {
+                                    System.out.println("Unhandled replication command: " + command);
+                                }
+                            }
+
+                            commandBuffer.clear(); // clean parsed data
+                        } catch (Exception e) {
+                            System.out.println("Waiting for complete replication command: " + e.getMessage());
                         }
                     }
-
-                    // Clear buffer if successfully parsed
-                    commandBuffer.clear();
-                } catch (Exception e) {
-                    // Not enough data? Wait for more
-                    System.out.println("Partial command received, waiting for more data: " + e.getMessage());
+                } catch (IOException ioException) {
+                    System.out.println("Replication listener stopped: " + ioException.getMessage());
                 }
+            }).start();
+        }
             }
 
-        }
-    }
+        
+    
 
     private static void sendErrorResponse(OutputStream out, String error) throws IOException {
         out.write(("-ERR " + error + "\r\n").getBytes());
