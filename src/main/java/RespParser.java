@@ -27,30 +27,67 @@ class RespParser {
         pos++;
 
         switch (type) {
-            case '*':
-            	int length = parseLength();
-            	RespCommand[] elements = new RespCommand[length];
-                for (int i = 0; i < length; i++) {
-                    elements[i] = next();
-                    if (elements[i] == null) throw new IOException("Null element in array");
-                }
-                return new RespCommand(elements);
-            case '$':
-            	String value = parseString();
-                return new RespCommand(new String[] { value });
-            case '+':
-            	String simpleString = parseSimpleStringValue();
-                return new RespCommand(new String[] { simpleString });
+            case '*': // Multi-element responses (e.g., MGET, LRANGE)
+            	return parseArrayResponse();
+//            	int length = parseLength();
+//            	RespCommand[] elements = new RespCommand[length];
+//                for (int i = 0; i < length; i++) {
+//                    elements[i] = next();
+//                    if (elements[i] == null) throw new IOException("Null element in array");
+//                }
+//                return new RespCommand(elements);
+            case '$': // Bulk string (e.g., GET foo)
+            	return parseBulkStringResponse();
+//            	String value = parseString();
+//                return new RespCommand(new String[] { value });
+            case '+': // Simple string (e.g., response like PONG from a PING command)
+            	return parseSimpleStringResponse();
+//            	String simpleString = parseSimpleStringValue();
+//                return new RespCommand(new String[] { simpleString });
             case '-':  // Error message
-                String errorMessage = parseSimpleStringValue();
-                throw new IOException("RESP Error: " + errorMessage);
+            	return parseErrorResponse();
+//                String errorMessage = parseSimpleStringValue();
+//                throw new IOException("RESP Error: " + errorMessage);
             case ':':  // Integer type (not typically used in replication but can be useful)
-                String integerValue = parseSimpleStringValue();
-                return new RespCommand(new String[] { integerValue });
+            	return parseIntegerResponse();
+//                String integerValue = parseSimpleStringValue();
+//                return new RespCommand(new String[] { integerValue });
             default:
                 throw new IOException("Unsupported RESP type: " + (char) type);
         }
     }
+    
+    
+    private RespCommand parseArrayResponse() throws IOException {
+        int length = parseLength();
+        RespCommand[] elements = new RespCommand[length];
+        for (int i = 0; i < length; i++) {
+            elements[i] = next();  // Recursively parse each element in the array
+            if (elements[i] == null) throw new IOException("Null element in array");
+        }
+        return new RespCommand(elements);
+    }
+
+    private RespCommand parseBulkStringResponse() throws IOException {
+        String value = parseString();  // Parse the bulk string value
+        return new RespCommand(new String[] { value });  // Wrap it in a single-element RespCommand
+    }
+
+    private RespCommand parseSimpleStringResponse() throws IOException {
+        String simpleString = parseSimpleStringValue();
+        return new RespCommand(new String[] { simpleString });
+    }
+
+    private RespCommand parseErrorResponse() throws IOException {
+        String errorMessage = parseSimpleStringValue();
+        throw new IOException("RESP Error: " + errorMessage);
+    }
+
+    private RespCommand parseIntegerResponse() throws IOException {
+        String integerValue = parseSimpleStringValue();
+        return new RespCommand(new String[] { integerValue });
+    }
+    
 
     private String parseString() throws IOException {
         int length = parseLength();
