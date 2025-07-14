@@ -32,25 +32,25 @@ class RespParser {
 
         switch (type) {
             case '*': // Multi-element responses (e.g., MGET, LRANGE)
-//            	return parseArrayResponse();
-            	int length = parseLength();
-            	System.out.println("DEBUG: Parsing array of length: " + length);
-            	RespCommand[] elements = new RespCommand[length];
-                for (int i = 0; i < length; i++) {
-                    elements[i] = next();
-                    if (elements[i] == null) throw new IOException("Null element in array");
-                }
-                return new RespCommand(elements);
+            	return parseArrayResponse();
+//            	int length = parseLength();
+//            	System.out.println("DEBUG: Parsing array of length: " + length);
+//            	RespCommand[] elements = new RespCommand[length];
+//                for (int i = 0; i < length; i++) {
+//                    elements[i] = next();
+//                    if (elements[i] == null) throw new IOException("Null element in array");
+//                }
+//                return new RespCommand(elements);
             case '$': // Bulk string (e.g., GET foo)
-//            	return parseBulkStringResponse();
-            	String value = parseString();
-            	System.out.println("DEBUG: Bulk String value: " + value);
-                return new RespCommand(new String[] { value });
+            	return parseBulkStringResponse();
+//            	String value = parseString();
+//            	System.out.println("DEBUG: Bulk String value: " + value);
+//                return new RespCommand(new String[] { value });
             case '+': // Simple string (e.g., response like PONG from a PING command)
-//            	return parseSimpleStringResponse();
-            	String simpleString = parseSimpleStringValue();
-            	System.out.println("DEBUG: Simple String: " + simpleString);
-                return new RespCommand(new String[] { simpleString });
+            	return parseSimpleStringResponse();
+//            	String simpleString = parseSimpleStringValue();
+//            	System.out.println("DEBUG: Simple String: " + simpleString);
+//                return new RespCommand(new String[] { simpleString });
             case '-':  // Error message
 //            	return parseErrorResponse();
                 String errorMessage = parseSimpleStringValue();
@@ -68,7 +68,9 @@ class RespParser {
     
     
     private RespCommand parseArrayResponse() throws IOException {
+    	System.out.println("DEBUG: Entering array response parsing.");
         int length = parseLength();
+        System.out.println("DEBUG: Parsing array of length: " + length);
         RespCommand[] elements = new RespCommand[length];
         for (int i = 0; i < length; i++) {
             elements[i] = next();  // Recursively parse each element in the array
@@ -79,11 +81,13 @@ class RespParser {
 
     private RespCommand parseBulkStringResponse() throws IOException {
         String value = parseString();  // Parse the bulk string value
+        System.out.println("DEBUG: Bulk String value: " + value);
         return new RespCommand(new String[] { value });  // Wrap it in a single-element RespCommand
     }
 
     private RespCommand parseSimpleStringResponse() throws IOException {
         String simpleString = parseSimpleStringValue();
+        System.out.println("DEBUG: Simple String: " + simpleString);
         return new RespCommand(new String[] { simpleString });
     }
 
