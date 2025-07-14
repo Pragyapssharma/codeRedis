@@ -64,13 +64,28 @@ class RespParser {
     }
     
     private String parseBulkString() throws IOException {
-        int len = parseLength();
-        if (len == -1) return null;
-        if (pos + len + 2 > data.length) throw new IOException("Incomplete bulk data");
-        String val = new String(data, pos, len);
-        pos += len + 2;
-        return val;
+        int len = parseLength();  // called after reading '$'
+
+        if (len == -1) {
+            return null;  // Null bulk string — this is valid in Redis
+        }
+
+        if (pos + len + 2 > data.length) {
+            throw new IOException("Incomplete bulk string");
+        }
+
+        String result = new String(data, pos, len);
+        pos += len;
+
+        // Expecting "\r\n" after the bulk string
+        if (data[pos] != '\r' || data[pos + 1] != '\n') {
+            throw new IOException("Invalid bulk string ending");
+        }
+
+        pos += 2;
+        return result;
     }
+
     
     private int parseLength() throws IOException {
         String num = parseLine();
