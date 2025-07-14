@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.util.Arrays;
 
 class RespParser {
     private byte[] data;
@@ -24,12 +25,16 @@ class RespParser {
         if (pos >= data.length) return null;
 
         byte type = data[pos];
+        System.out.println("DEBUG: Received type: " + (char) type);
         pos++;
+        
+        System.out.println("DEBUG: Raw Data at position " + pos + ": " + Arrays.toString(data));
 
         switch (type) {
             case '*': // Multi-element responses (e.g., MGET, LRANGE)
 //            	return parseArrayResponse();
             	int length = parseLength();
+            	System.out.println("DEBUG: Parsing array of length: " + length);
             	RespCommand[] elements = new RespCommand[length];
                 for (int i = 0; i < length; i++) {
                     elements[i] = next();
@@ -39,18 +44,22 @@ class RespParser {
             case '$': // Bulk string (e.g., GET foo)
 //            	return parseBulkStringResponse();
             	String value = parseString();
+            	System.out.println("DEBUG: Bulk String value: " + value);
                 return new RespCommand(new String[] { value });
             case '+': // Simple string (e.g., response like PONG from a PING command)
 //            	return parseSimpleStringResponse();
             	String simpleString = parseSimpleStringValue();
+            	System.out.println("DEBUG: Simple String: " + simpleString);
                 return new RespCommand(new String[] { simpleString });
             case '-':  // Error message
 //            	return parseErrorResponse();
                 String errorMessage = parseSimpleStringValue();
+                System.out.println("DEBUG: Error message: " + errorMessage);
                 throw new IOException("RESP Error: " + errorMessage);
             case ':':  // Integer type (not typically used in replication but can be useful)
 //            	return parseIntegerResponse();
                 String integerValue = parseSimpleStringValue();
+                System.out.println("DEBUG: Integer value: " + integerValue);
                 return new RespCommand(new String[] { integerValue });
             default:
                 throw new IOException("Unsupported RESP type: " + (char) type);
@@ -91,6 +100,7 @@ class RespParser {
 
     private String parseString() throws IOException {
         int length = parseLength();
+        System.out.println("DEBUG: Bulk String Length: " + length);
         if (length == -1) {
             return null;
         }
@@ -115,7 +125,7 @@ class RespParser {
         }
 
         pos += 2;
-        
+        System.out.println("DEBUG: Bulk String value parsed: " + value);
         return value;
     }
     
@@ -160,6 +170,7 @@ class RespParser {
     
     private String parseSimpleStringValue() throws IOException {
         StringBuilder sb = new StringBuilder();
+        System.out.println("DEBUG: Simple String value parsed: " + sb);
         while (pos < data.length) {
             byte b = data[pos];
             pos++;
