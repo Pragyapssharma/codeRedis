@@ -31,8 +31,7 @@ class RespParser {
             	int length = parseLength();
                 String[] elements = new String[length];
                 for (int i = 0; i < length; i++) {
-//                    elements[i] = parseString();
-                    elements[i] = parseBulkString();
+                    elements[i] = parseString();
                     if (elements[i] == null) throw new IOException("Null element in array");
                 }
                 return new RespCommand(elements);
@@ -58,36 +57,44 @@ class RespParser {
         if (length == -1) {
             return null;
         }
-        String value = new String(data, pos, length);
-        pos += length + 2;
-        return value;
-    }
-    
-    private String parseBulkString() throws IOException {
-        int len = parseLength(); // after '$'
-
-        if (len == -1) return null;
-
-        if (len < 0 || pos + len + 2 > data.length) {
-            throw new IOException("Invalid or incomplete bulk string length: " + len);
+        
+        if (pos >= data.length) {
+            throw new IOException("No more data to read length prefix");
         }
 
-        String result = new String(data, pos, len);
-        pos += len;
-
-        if (pos + 1 >= data.length || data[pos] != '\r' || data[pos + 1] != '\n') {
+//        if (length < 0 || pos + length + 2 > data.length) {
+//            throw new IOException("Invalid or incomplete bulk string length: " + length);
+//        }
+        
+        if (pos >= data.length || pos + length + 2 > data.length) {
+            throw new IOException("Invalid or incomplete bulk string length: " + length);
+        }
+        
+        String value = new String(data, pos, length);
+        pos += length;
+        
+//        if (pos + 1 >= data.length || data[pos] != '\r' || data[pos + 1] != '\n') {
+//            throw new IOException("Bulk string not terminated correctly");
+//        }
+        
+        if (data[pos] != '\r' || data[pos + 1] != '\n') {
             throw new IOException("Bulk string not terminated correctly");
         }
 
         pos += 2;
-        return result;
+        
+        return value;
     }
-
-
+    
     
     private int parseLength() throws IOException {
         String num = parseLine();
-        return Integer.parseInt(num);
+        try {
+            return Integer.parseInt(num);
+        } catch (NumberFormatException e) {
+            throw new IOException("Invalid length format: " + num, e);
+        }
+
     }
     
     private String parseLine() throws IOException {
