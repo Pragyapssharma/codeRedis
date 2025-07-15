@@ -25,10 +25,8 @@ class RespParser {
         
 
         byte type = data[pos];
-        System.out.println("DEBUG: Received type: " + (char) type);
         pos++;
         
-        System.out.println("DEBUG: Raw Data at position " + pos + ": " + Arrays.toString(data));
 
         switch (type) {
         	case '+': // Simple string (e.g., response like PONG from a PING command)
@@ -59,13 +57,11 @@ class RespParser {
             case '-':  // Error message
 //            	return parseErrorResponse();
                 String errorMessage = parseSimpleStringValue();
-                System.out.println("DEBUG: Error message: " + errorMessage);
                 throw new IOException("RESP Error: " + errorMessage);
                 
             case ':':  // Integer type (not typically used in replication but can be useful)
 //            	return parseIntegerResponse();
                 String integerValue = parseSimpleStringValue();
-                System.out.println("DEBUG: Integer value: " + integerValue);
                 return new RespCommand(new String[] { integerValue });
                 
             default:
@@ -75,9 +71,7 @@ class RespParser {
     
     
     private RespCommand parseArrayResponse() throws IOException {
-    	System.out.println("DEBUG: Entering array response parsing.");
         int length = parseLength();
-        System.out.println("DEBUG: Parsing array of length: " + length);
         RespCommand[] elements = new RespCommand[length];
         for (int i = 0; i < length; i++) {
             elements[i] = next();  // Recursively parse each element in the array
@@ -94,7 +88,6 @@ class RespParser {
     
     private RespCommand parseBulkStringResponse() throws IOException {
         int length = parseLength();  // Read the length of the bulk string
-        System.out.println("DEBUG: Bulk String Length: " + length);
 
         if (length == -1) {
             return null;  // Handle empty bulk string (or NULL in RESP)
@@ -113,14 +106,12 @@ class RespParser {
 
         pos += 2;  // Skip \r\n
 
-        System.out.println("DEBUG: Bulk String value parsed: " + value);
         return new RespCommand(new String[] { value });
     }
 
 
     private RespCommand parseSimpleStringResponse() throws IOException {
         String simpleString = parseSimpleStringValue();
-        System.out.println("DEBUG: Simple String: " + simpleString);
         return new RespCommand(new String[] { simpleString });
     }
 
@@ -137,7 +128,6 @@ class RespParser {
 
     private String parseString() throws IOException {
         int length = parseLength();
-        System.out.println("DEBUG: Bulk String Length: " + length);
         if (length == -1) {
             return null;
         }
@@ -162,7 +152,6 @@ class RespParser {
         }
 
         pos += 2;
-        System.out.println("DEBUG: Bulk String value parsed: " + value);
         return value;
     }
     
@@ -207,7 +196,6 @@ class RespParser {
     
     private String parseSimpleStringValue() throws IOException {
         StringBuilder sb = new StringBuilder();
-        System.out.println("DEBUG: Simple String value parsed: " + sb);
         while (pos < data.length) {
             byte b = data[pos];
             pos++;
