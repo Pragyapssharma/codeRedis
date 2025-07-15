@@ -233,16 +233,20 @@ class ClientHandler extends Thread {
         String key = args.get(1);
         KeyValue kv = keyValueStore.get(key);
 
-        String response;
+//        String response;
+        
         if (kv == null || kv.hasExpired()) {
             System.out.println("GET " + key + " => not found or expired");
-            response = RespCommand.bulkString(null); // will return $-1\r\n
+            out.write("$-1\r\n".getBytes());
+//            response = RespCommand.bulkString(null); // will return $-1\r\n
         } else {
-            response = RespCommand.bulkString(kv.value); // formatted response
+        	String value = kv.value;
+            out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
+//            response = RespCommand.bulkString(kv.value); // formatted response
         }
 
-        System.out.println("Sending GET response: " + response.replace("\r\n", "\\r\\n"));
-        out.write(response.getBytes());
+//        System.out.println("Sending GET response: " + response.replace("\r\n", "\\r\\n"));
+//        out.write(response.getBytes());
     }
     
 //    private void handleGet(List<String> args, OutputStream out) throws IOException {

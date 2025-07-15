@@ -93,7 +93,7 @@ class RespParser {
             return null;  // Handle empty bulk string (or NULL in RESP)
         }
 
-        if (pos + length + 2 > data.length) {
+        if (pos + length > data.length) {
             throw new IOException("Invalid or incomplete bulk string");
         }
 

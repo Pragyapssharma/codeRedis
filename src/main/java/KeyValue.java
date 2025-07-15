@@ -19,5 +19,4 @@ class KeyValue {
             this.expirationTimestamp = newExpirationTimestamp;
             System.out.println("Expiration updated: " + newExpirationTimestamp);
         }
-        
 }
