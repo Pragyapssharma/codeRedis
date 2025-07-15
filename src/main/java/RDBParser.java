@@ -55,19 +55,11 @@ public class RDBParser {
 			case 0xFF:
 				return;
 			default:
-//				if (b >= 0x00 && b <= 0x06) {
-				if (b == '*') {	
-					long arrayLength = readLength(in);
-	                System.out.println("Received ARRAY with length: " + arrayLength);
-	                String command = readLengthEncodedString(in);
-	                if ("SET".equals(command)) {
-	                    String key = readLengthEncodedString(in);
-	                    String value = readLengthEncodedString(in);
-	                    System.out.printf("SET command: key=%s, value=%s%n", key, value);
+				if (b >= 0x00 && b <= 0x06) {
 					// Assume `b` is a data type (e.g. string = 0x00, list = 0x01, etc.)
 					// For this challenge, only strings are supported.
-//					String key = readLengthEncodedString(in);
-//					String value = readLengthEncodedString(in);
+					String key = readLengthEncodedString(in);
+					String value = readLengthEncodedString(in);
 
 					if (hasExpiry) {
 					    long now = System.currentTimeMillis();
@@ -76,11 +68,10 @@ public class RDBParser {
 					    if (expireAtMillis != 0 && expireAtMillis < now) {
 					        System.out.println("Skipping expired key: " + key);
 					        continue;
-					    } 
-//					    else {
+					    } else {
 					        ClientHandler.putKeyWithExpiry(key, value, expireAtMillis);
 					        System.out.println("Loaded key with expiry: " + key);
-//					    }
+					    }
 					    hasExpiry = false;
 					    expireAtMillis = 0;
 					} else {
@@ -92,7 +83,7 @@ public class RDBParser {
 					skipUnsupportedObject(b, in);
 				}
 				break;
-				}
+
 			}
 		}
 
