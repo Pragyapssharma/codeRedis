@@ -99,10 +99,18 @@ class RespParser {
 
         String value = new String(data, pos, length);
         pos += length;
-
-        if (data[pos] != '\r' || data[pos + 1] != '\n') {
+        
+        if (pos + 2 > data.length || data[pos] != '\r' || data[pos + 1] != '\n') {
             throw new IOException("Bulk string not terminated correctly");
         }
+        
+//        if (pos + 2 > data.length) {
+//            throw new IOException("Bulk string not terminated correctly");
+//        }
+//
+//        if (data[pos] != '\r' || data[pos + 1] != '\n') {
+//            throw new IOException("Bulk string not terminated correctly");
+//        }
 
         pos += 2;  // Skip \r\n
 
