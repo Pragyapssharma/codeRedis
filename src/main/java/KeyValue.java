@@ -14,4 +14,10 @@ class KeyValue {
             System.out.printf("Checking if expired: now=%d, expire=%d, expired=%b%n", now, expirationTimestamp, expired);
             return expired;
         }
+        
+        void updateExpiration(long newExpirationTimestamp) {
+            this.expirationTimestamp = newExpirationTimestamp;
+            System.out.println("Expiration updated: " + newExpirationTimestamp);
+        }
+        
 }

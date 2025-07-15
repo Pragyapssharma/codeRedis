@@ -47,4 +47,39 @@ class RespCommand {
         return "$" + value.length() + "\r\n" + value + "\r\n";
     }
     
+    public static String mset(String[] keys, String[] values) {
+        if (keys.length != values.length) {
+            throw new IllegalArgumentException("Keys and values arrays must be of the same length.");
+        }
+        
+        StringBuilder command = new StringBuilder();
+        command.append("*").append(keys.length * 2 + 1).append("\r\n");
+        command.append("$4\r\nMSET\r\n");
+
+        for (int i = 0; i < keys.length; i++) {
+            command.append("$").append(keys[i].length()).append("\r\n").append(keys[i]).append("\r\n");
+            command.append("$").append(values[i].length()).append("\r\n").append(values[i]).append("\r\n");
+        }
+        
+        return command.toString();
+    }
+
+    public static String hset(String key, String[] fields, String[] values) {
+        if (fields.length != values.length) {
+            throw new IllegalArgumentException("Fields and values arrays must be of the same length.");
+        }
+
+        StringBuilder command = new StringBuilder();
+        command.append("*").append(fields.length * 2 + 2).append("\r\n");
+        command.append("$4\r\nHSET\r\n");
+        command.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
+
+        for (int i = 0; i < fields.length; i++) {
+            command.append("$").append(fields[i].length()).append("\r\n").append(fields[i]).append("\r\n");
+            command.append("$").append(values[i].length()).append("\r\n").append(values[i]).append("\r\n");
+        }
+        
+        return command.toString();
+    }
+    
 }
