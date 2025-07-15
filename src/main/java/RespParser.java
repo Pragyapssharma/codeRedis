@@ -86,11 +86,37 @@ class RespParser {
         return new RespCommand(elements);
     }
 
+//    private RespCommand parseBulkStringResponse() throws IOException {
+//        String value = parseString();  // Parse the bulk string value
+//        System.out.println("DEBUG: Bulk String value: " + value);
+//        return new RespCommand(new String[] { value });  // Wrap it in a single-element RespCommand
+//    }
+    
     private RespCommand parseBulkStringResponse() throws IOException {
-        String value = parseString();  // Parse the bulk string value
-        System.out.println("DEBUG: Bulk String value: " + value);
-        return new RespCommand(new String[] { value });  // Wrap it in a single-element RespCommand
+        int length = parseLength();  // Read the length of the bulk string
+        System.out.println("DEBUG: Bulk String Length: " + length);
+
+        if (length == -1) {
+            return null;  // Handle empty bulk string (or NULL in RESP)
+        }
+
+        if (pos + length + 2 > data.length) {
+            throw new IOException("Invalid or incomplete bulk string");
+        }
+
+        String value = new String(data, pos, length);
+        pos += length;
+
+        if (data[pos] != '\r' || data[pos + 1] != '\n') {
+            throw new IOException("Bulk string not terminated correctly");
+        }
+
+        pos += 2;  // Skip \r\n
+
+        System.out.println("DEBUG: Bulk String value parsed: " + value);
+        return new RespCommand(new String[] { value });
     }
+
 
     private RespCommand parseSimpleStringResponse() throws IOException {
         String simpleString = parseSimpleStringValue();
