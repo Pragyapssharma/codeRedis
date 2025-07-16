@@ -214,21 +214,49 @@ class RespParser {
         return sb.toString();
     }
 
+//    public void handleReplicationCommand(RespCommand command) throws IOException {
+//        String[] elements = command.getArray();
+//
+//        if (elements[0].equals("FULLRESYNC")) {
+//            String replicationId = elements[1];
+//            long offset = Long.parseLong(elements[2]);
+//
+//            // Handle the FULLRESYNC logic (you can use replicationId and offset here)
+//            System.out.println("Full Resync received from master: " + replicationId + " offset: " + offset);
+//            // Example logic, like initializing a new RDB file or syncing
+//            // You can store the replication state here or handle command propagation
+//        } else {
+//            System.out.println("Unsupported replication command: " + elements[0]);
+//        }
+//    }
+
     public void handleReplicationCommand(RespCommand command) throws IOException {
-        String[] elements = command.getArray();
-
-        if (elements[0].equals("FULLRESYNC")) {
-            String replicationId = elements[1];
-            long offset = Long.parseLong(elements[2]);
-
-            // Handle the FULLRESYNC logic (you can use replicationId and offset here)
-            System.out.println("Full Resync received from master: " + replicationId + " offset: " + offset);
-            // Example logic, like initializing a new RDB file or syncing
-            // You can store the replication state here or handle command propagation
+        // Check if it's an array of strings
+        RespCommand[] elements = command.getSubCommands();  // <-- change here
+        if (elements == null) {
+            // If not nested array, maybe it's a single string
+            String[] singleArray = command.getArray();
+            if (singleArray != null) {
+                if (singleArray.length > 0 && "FULLRESYNC".equals(singleArray[0])) {
+                    // Handle FULLRESYNC
+                }
+                else {
+                    // handle other commands
+                }
+            }
+            else {
+                throw new IOException("Unexpected command format");
+            }
         } else {
-            System.out.println("Unsupported replication command: " + elements[0]);
+            // Array of commands (e.g., ["SET", "foo", "123"])
+            if (elements.length > 0) {
+                String commandName = elements[0].getArray()[0];
+                // Process commandName and arguments accordingly
+            }
         }
     }
 
+
+    
     
 }
