@@ -86,36 +86,29 @@ class RespParser {
 //        return new RespCommand(new String[] { value });  // Wrap it in a single-element RespCommand
 //    }
     
-//    private RespCommand parseBulkStringResponse() throws IOException {
-//        int length = parseLength();  // Read the length of the bulk string
-//
-//        if (length == -1) {
-//            return null;  // Handle empty bulk string (or NULL in RESP)
-//        }
-//
-//        if (pos + length > data.length) {
-//            throw new IOException("Invalid or incomplete bulk string");
-//        }
-//
-//        String value = new String(data, pos, length);
-//        pos += length;
-//        
-//        if (pos + 2 > data.length || data[pos] != '\r' || data[pos + 1] != '\n') {
-//            throw new IOException("Bulk string not terminated correctly");
-//        }
-//        
-////        if (pos + 2 > data.length) {
-////            throw new IOException("Bulk string not terminated correctly");
-////        }
-////
-////        if (data[pos] != '\r' || data[pos + 1] != '\n') {
-////            throw new IOException("Bulk string not terminated correctly");
-////        }
-//
-//        pos += 2;  // Skip \r\n
-//
-//        return new RespCommand(new String[] { value });
-//    }
+    private RespCommand parseBulkStringResponse() throws IOException {
+        int length = parseLength();  // Read the length of the bulk string
+
+        if (length == -1) {
+            return new RespCommand(new String[] { null }); // Return null value wrapped
+        }
+
+        if (pos + length > data.length) {
+            throw new IOException("Invalid or incomplete bulk string");
+        }
+
+        String value = new String(data, pos, length);
+        pos += length;
+
+        if (pos + 2 > data.length || data[pos] != '\r' || data[pos + 1] != '\n') {
+            throw new IOException("Bulk string not terminated correctly");
+        }
+
+        pos += 2;  // Skip \r\n
+        return new RespCommand(new String[] { value });
+    }
+
+    
     public static String bulkString(String value) {
         if (value == null) {
             return "$-1\r\n"; // Null bulk string for missing keys
