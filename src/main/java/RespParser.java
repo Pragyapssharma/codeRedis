@@ -63,52 +63,40 @@ class RespParser {
             case ':':  // Integer type (not typically used in replication but can be useful)
 //            	return parseIntegerResponse();
                 String integerValue = parseSimpleStringValue();
-                return new RespCommand(new String[] { integerValue });
+                return new RespCommand(integerValue);
                 
             default:
                 throw new IOException("Unsupported RESP type: " + (char) type);
         }
     }
     
-    
     private RespCommand parseSimpleStringResponse() throws IOException {
-        String simpleString = parseSimpleStringValue();
-        return new RespCommand(new String[] { simpleString });
-    }
-
-    private RespCommand parseIntegerResponse() throws IOException {
-        String integerValue = parseSimpleStringValue();
-        return new RespCommand(new String[] { integerValue });
+        String value = parseSimpleStringValue();
+        return new RespCommand(value);
     }
 
     private RespCommand parseBulkStringResponse() throws IOException {
         int length = parseLength();
         if (length == -1) {
-            return new RespCommand(new String[] { null });
+            return new RespCommand((String) null);
         }
-
         if (pos + length + 2 > data.length) {
             throw new IOException("Invalid or incomplete bulk string");
         }
-
         String value = new String(data, pos, length);
         pos += length;
-
         if (data[pos] != '\r' || data[pos + 1] != '\n') {
             throw new IOException("Bulk string not terminated correctly");
         }
-        pos += 2; // Skip \r\n
-
-        return new RespCommand(new String[] { value });
+        pos += 2;
+        return new RespCommand(value);
     }
 
     private RespCommand parseArrayResponse() throws IOException {
         int length = parseLength();
         if (length == -1) {
-            // Null array, treat as empty array or null?
-            return new RespCommand(new RespCommand[0]);
+            return new RespCommand(new RespCommand[0]); // Null array treated as empty array
         }
-
         RespCommand[] elements = new RespCommand[length];
         for (int i = 0; i < length; i++) {
             elements[i] = next();
@@ -118,6 +106,55 @@ class RespParser {
         }
         return new RespCommand(elements);
     }
+    
+    
+//    private RespCommand parseSimpleStringResponse() throws IOException {
+//        String simpleString = parseSimpleStringValue();
+//        return new RespCommand(new String[] { simpleString });
+//    }
+
+    private RespCommand parseIntegerResponse() throws IOException {
+        String integerValue = parseSimpleStringValue();
+        return new RespCommand(integerValue);
+    }
+
+//    private RespCommand parseBulkStringResponse() throws IOException {
+//        int length = parseLength();
+//        if (length == -1) {
+//            return new RespCommand(new String[] { null });
+//        }
+//
+//        if (pos + length + 2 > data.length) {
+//            throw new IOException("Invalid or incomplete bulk string");
+//        }
+//
+//        String value = new String(data, pos, length);
+//        pos += length;
+//
+//        if (data[pos] != '\r' || data[pos + 1] != '\n') {
+//            throw new IOException("Bulk string not terminated correctly");
+//        }
+//        pos += 2; // Skip \r\n
+//
+//        return new RespCommand(new String[] { value });
+//    }
+
+//    private RespCommand parseArrayResponse() throws IOException {
+//        int length = parseLength();
+//        if (length == -1) {
+//            // Null array, treat as empty array or null?
+//            return new RespCommand(new RespCommand[0]);
+//        }
+//
+//        RespCommand[] elements = new RespCommand[length];
+//        for (int i = 0; i < length; i++) {
+//            elements[i] = next();
+//            if (elements[i] == null) {
+//                throw new IOException("Null element in array");
+//            }
+//        }
+//        return new RespCommand(elements);
+//    }
 
     private String parseSimpleStringValue() throws IOException {
         StringBuilder sb = new StringBuilder();
@@ -159,41 +196,68 @@ class RespParser {
         }
         throw new IOException("Line not terminated");
     }
-
-    // Example usage of handleReplicationCommand based on your example:
+    
     public void handleReplicationCommand(RespCommand command) throws IOException {
-        if (command.getSubCommands() != null) {
-            // Array of RespCommands
-            RespCommand[] elements = command.getSubCommands();
-            if (elements.length > 0) {
-                String cmdName = elements[0].getArray() != null ? elements[0].getArray()[0] : null;
-                if ("FULLRESYNC".equalsIgnoreCase(cmdName)) {
-                    // Handle FULLRESYNC command here
+        if (command.isSimple()) {
+            String val = command.getValue();  // e.g. "+FULLRESYNC <replid> <offset>"
+            if (val.startsWith("FULLRESYNC")) {
+                String[] parts = val.split(" ");
+                if (parts.length >= 3) {
+                    String replicationId = parts[1];
+                    long offset = Long.parseLong(parts[2]);
                     System.out.println("Received FULLRESYNC command");
-                    // Example: get replicationId and offset
-                    if (elements.length >= 3) {
-                        String replicationId = elements[1].getArray()[0];
-                        String offsetStr = elements[2].getArray()[0];
-                        long offset = Long.parseLong(offsetStr);
-                        System.out.println("ReplicationId: " + replicationId + ", offset: " + offset);
-                    }
+                    System.out.println("ReplicationId: " + replicationId + ", offset: " + offset);
+                    // handle FULLRESYNC logic here
                 } else {
-                    System.out.println("Unhandled replication command: " + cmdName);
+                    throw new IOException("Invalid FULLRESYNC simple string format");
                 }
+            } else {
+                System.out.println("Received simple command: " + val);
             }
         } else if (command.getArray() != null) {
-            String[] parts = command.getArray();
-            if (parts.length > 0) {
-                if ("FULLRESYNC".equalsIgnoreCase(parts[0])) {
-                    System.out.println("Received FULLRESYNC (flat array) with parts: " + Arrays.toString(parts));
-                    // Handle FULLRESYNC logic here
-                } else {
-                    System.out.println("Unhandled replication command: " + parts[0]);
-                }
-            }
+            // Handle array commands here if needed
+            System.out.println("Received array command with subcommands");
         } else {
             throw new IOException("Unexpected command format");
         }
     }
+
+
+
+    // Example usage of handleReplicationCommand based on your example:
+//    public void handleReplicationCommand(RespCommand command) throws IOException {
+//        if (command.getSubCommands() != null) {
+//            // Array of RespCommands
+//            RespCommand[] elements = command.getSubCommands();
+//            if (elements.length > 0) {
+//                String cmdName = elements[0].getArray() != null ? elements[0].getArray()[0] : null;
+//                if ("FULLRESYNC".equalsIgnoreCase(cmdName)) {
+//                    // Handle FULLRESYNC command here
+//                    System.out.println("Received FULLRESYNC command");
+//                    // Example: get replicationId and offset
+//                    if (elements.length >= 3) {
+//                        String replicationId = elements[1].getArray()[0];
+//                        String offsetStr = elements[2].getArray()[0];
+//                        long offset = Long.parseLong(offsetStr);
+//                        System.out.println("ReplicationId: " + replicationId + ", offset: " + offset);
+//                    }
+//                } else {
+//                    System.out.println("Unhandled replication command: " + cmdName);
+//                }
+//            }
+//        } else if (command.getArray() != null) {
+//            String[] parts = command.getArray();
+//            if (parts.length > 0) {
+//                if ("FULLRESYNC".equalsIgnoreCase(parts[0])) {
+//                    System.out.println("Received FULLRESYNC (flat array) with parts: " + Arrays.toString(parts));
+//                    // Handle FULLRESYNC logic here
+//                } else {
+//                    System.out.println("Unhandled replication command: " + parts[0]);
+//                }
+//            }
+//        } else {
+//            throw new IOException("Unexpected command format");
+//        }
+//    }
     
 }

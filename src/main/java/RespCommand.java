@@ -1,37 +1,66 @@
 import java.util.Arrays;
 
 class RespCommand {
-    private final String[] array;
-    private RespCommand[] subCommands;
+//    private final String[] array;
+	private final String value;
+    private RespCommand[] array;
 
-    public RespCommand(String[] array) {
+    public RespCommand(String value) {
+        this.value = value;
+        this.array = null;
+    }
+    
+    public RespCommand(RespCommand[] array) {
         this.array = array;
-        this.subCommands = null;
+        this.value = null; // No main array
     }
     
-    public RespCommand(RespCommand[] subCommands) {
-        this.subCommands = subCommands;
-        this.array = null; // No main array
+    public String getValue() {
+        return value;
     }
 
+//    public String[] getArray() {
+//        return array;
+//    }
+    
+//    public RespCommand[] getSubCommands() {
+//        return subCommands;
+//    }
+    
     public String[] getArray() {
-        return array;
+        if (array == null) return null;
+
+        String[] result = new String[array.length];
+        for (int i = 0; i < array.length; i++) {
+            result[i] = array[i].getValue();
+        }
+        return result;
     }
     
-    public RespCommand[] getSubCommands() {
-        return subCommands;
+    public boolean isSimple() {
+        return value != null;
     }
     
     @Override
     public String toString() {
-    	if (array != null) {
-            return "RespCommand{array=" + Arrays.toString(array) + "}";
-        } else if (subCommands != null) {
-            return "RespCommand{subCommands=" + Arrays.toString(subCommands) + "}";
+        if (isSimple()) {
+            return "RespCommand{value=" + value + "}";
+        } else if (array != null) {
+            return "RespCommand{subCommands=" + Arrays.toString(array) + "}";
         } else {
             return "RespCommand(empty)";
         }
     }
+    
+//    public String toString() {
+//    	if (array != null) {
+//            return "RespCommand{array=" + Arrays.toString(array) + "}";
+//        } else if (subCommands != null) {
+//            return "RespCommand{subCommands=" + Arrays.toString(subCommands) + "}";
+//        } else {
+//            return "RespCommand(empty)";
+//        }
+//    }
 
 //    public String getFirstArg() {
 //    	if (array != null && array.length > 0) {
