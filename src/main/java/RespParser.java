@@ -213,30 +213,27 @@ class RespParser {
             } else {
                 System.out.println("Received simple command: " + val);
             }
-        } else if (command.array != null) {
-            // Handle nested commands with array of RespCommand objects
-            RespCommand[] subcommands = command.array;
-            if (subcommands.length > 0 && subcommands[0].isSimple()) {
-                String cmdName = subcommands[0].getValue();
+        } else {
+            String[] parts = command.getArray(); // Uses the array of sub-RespCommands' values
+            if (parts != null && parts.length > 0) {
+                String cmdName = parts[0];
                 if ("FULLRESYNC".equalsIgnoreCase(cmdName)) {
-                    if (subcommands.length >= 3) {
-                        String replicationId = subcommands[1].getValue();
-                        long offset = Long.parseLong(subcommands[2].getValue());
+                    if (parts.length >= 3) {
+                        String replicationId = parts[1];
+                        long offset = Long.parseLong(parts[2]);
                         System.out.println("Received FULLRESYNC command");
                         System.out.println("ReplicationId: " + replicationId + ", offset: " + offset);
+                    } else {
+                        throw new IOException("FULLRESYNC command missing parameters");
                     }
                 } else {
                     System.out.println("Unhandled replication command: " + cmdName);
                 }
             } else {
-                System.out.println("Received array command with non-simple first element");
+                System.out.println("Received array command with no elements");
             }
-        } else {
-            throw new IOException("Unexpected command format");
         }
     }
-
-
 
 
     // Example usage of handleReplicationCommand based on your example:
