@@ -192,8 +192,10 @@ class ClientHandler extends Thread {
 
     public static void handleSet(List<String> args, OutputStream out) throws IOException {
         if (args.size() < 3) {
+        	if (out != null) {
             out.write(("-ERR wrong number of arguments for 'SET'\r\n").getBytes());
             return;
+        	}
         }
 
         String key = args.get(1);
@@ -259,10 +261,6 @@ class ClientHandler extends Thread {
             String value = kv.value;
             response = "$" + value.length() + "\r\n" + value + "\r\n";
         }
-
-        System.out.println("<< RESP GET-REPLY: " + response
-                .replace("\r", "\\r")
-                .replace("\n", "\\n") );
 
         out.write(response.getBytes());
     }
