@@ -236,13 +236,14 @@ class ClientHandler extends Thread {
 //        String response;
         
         if (kv == null || kv.hasExpired()) {
-            System.out.println("GET " + key + " => not found or expired");
-            out.write("$-1\r\n".getBytes());
+        	out.write("$-1\r\n".getBytes());
+            System.out.println("GET " + key + " => (nil)");
 //            response = RespCommand.bulkString(null); // will return $-1\r\n
         } else {
         	String value = kv.value;
-            out.write(("$" + value.length() + "\r\n" + value + "\r\n").getBytes());
-//            response = RespCommand.bulkString(kv.value); // formatted response
+        	String bulkResponse = "$" + value.length() + "\r\n" + value + "\r\n";
+            out.write(bulkResponse.getBytes());
+            System.out.println("GET " + key + " => " + value);
         }
 
 //        System.out.println("Sending GET response: " + response.replace("\r\n", "\\r\\n"));
