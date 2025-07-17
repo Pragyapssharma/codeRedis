@@ -356,36 +356,67 @@ class ClientHandler extends Thread {
         out.write(("$" + info.length() + "\r\n" + info + "\r\n").getBytes());
     }
     
+//    public static void handlePsync(List<String> args, OutputStream out) throws IOException {
+//        if (Config.isReplica) {
+//            // This server is in replica mode
+//            if (args.size() < 3) {
+//                out.write(("-ERR wrong number of arguments for 'PSYNC'\r\n").getBytes());
+//                return;
+//            }
+//
+//            String replicationId = args.get(1);  // The replication ID provided by the master
+//            long offset = Long.parseLong(args.get(2));  // The replication offset from the master
+//
+//            // Debugging the received PSYNC request
+//            System.out.println("Replica received PSYNC: replicationId=" + replicationId + ", offset=" + offset);
+//
+//            // Responding with FULLRESYNC
+//            String syncResponse = "+FULLRESYNC " + Config.masterReplId + " " + Config.masterReplOffset + "\r\n";
+//            out.write(syncResponse.getBytes());  // Send +FULLRESYNC message to the replica
+//
+//            // Send simulated empty RDB file to the replica
+//            out.write(EMPTY_RDB_FILE);  // Here, we send an empty RDB file (use actual RDB bytes if needed)
+//
+//            // Add the current OutputStream to the replica outputs for future propagation of commands
+//            replicaOutputs.add(out);
+//            System.out.println("Replica added: " + replicaOutputs.size() + " total replicas connected.");
+//        } else {
+//            // If not in replica mode, return an error message
+//            out.write(("-ERR PSYNC is only valid for replica mode\r\n").getBytes());
+//        }
+//    }
+
     public static void handlePsync(List<String> args, OutputStream out) throws IOException {
-        if (Config.isReplica) {
-            // This server is in replica mode
+        if (!Config.isReplica) {
+            // This server is the master and is handling a replica's PSYNC request
             if (args.size() < 3) {
                 out.write(("-ERR wrong number of arguments for 'PSYNC'\r\n").getBytes());
                 return;
             }
 
-            String replicationId = args.get(1);  // The replication ID provided by the master
-            long offset = Long.parseLong(args.get(2));  // The replication offset from the master
+            String replicationId = args.get(1);  // e.g., "?"
+            long offset = Long.parseLong(args.get(2));  // e.g., -1
 
-            // Debugging the received PSYNC request
-            System.out.println("Replica received PSYNC: replicationId=" + replicationId + ", offset=" + offset);
+            System.out.println("Replica requested PSYNC: replid=" + replicationId + ", offset=" + offset);
 
-            // Responding with FULLRESYNC
-            String syncResponse = "+FULLRESYNC " + Config.masterReplId + " " + Config.masterReplOffset + "\r\n";
-            out.write(syncResponse.getBytes());  // Send +FULLRESYNC message to the replica
+            // Respond with FULLRESYNC
+            String syncResponse = "+FULLRESYNC " + Config.masterReplId + " 0\r\n";
+            out.write(syncResponse.getBytes());
 
-            // Send simulated empty RDB file to the replica
-            out.write(EMPTY_RDB_FILE);  // Here, we send an empty RDB file (use actual RDB bytes if needed)
+            // Send empty RDB file as bulk string
+            byte[] rdbBytes = EMPTY_RDB_FILE;
+            String header = "$" + rdbBytes.length + "\r\n";
+            out.write(header.getBytes());
+            out.write(rdbBytes);
 
-            // Add the current OutputStream to the replica outputs for future propagation of commands
+            // Track this replica output stream for future propagation
             replicaOutputs.add(out);
-            System.out.println("Replica added: " + replicaOutputs.size() + " total replicas connected.");
+            System.out.println("Replica added: total=" + replicaOutputs.size());
+
         } else {
-            // If not in replica mode, return an error message
-            out.write(("-ERR PSYNC is only valid for replica mode\r\n").getBytes());
+            out.write(("-ERR PSYNC is only valid for master servers\r\n").getBytes());
         }
     }
-
 
 
     private void processMasterHandshake(BufferedReader in, OutputStream out) throws IOException {
