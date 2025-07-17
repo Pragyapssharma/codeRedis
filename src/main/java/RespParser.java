@@ -199,7 +199,7 @@ class RespParser {
     
     public void handleReplicationCommand(RespCommand command) throws IOException {
         if (command.isSimple()) {
-            String val = command.getValue();  // e.g. "+FULLRESYNC <replid> <offset>"
+            String val = command.getValue();
             if (val.startsWith("FULLRESYNC")) {
                 String[] parts = val.split(" ");
                 if (parts.length >= 3) {
@@ -207,20 +207,35 @@ class RespParser {
                     long offset = Long.parseLong(parts[2]);
                     System.out.println("Received FULLRESYNC command");
                     System.out.println("ReplicationId: " + replicationId + ", offset: " + offset);
-                    // handle FULLRESYNC logic here
                 } else {
                     throw new IOException("Invalid FULLRESYNC simple string format");
                 }
             } else {
                 System.out.println("Received simple command: " + val);
             }
-        } else if (command.getArray() != null) {
-            // Handle array commands here if needed
-            System.out.println("Received array command with subcommands");
+        } else if (command.array != null) {
+            // Handle nested commands with array of RespCommand objects
+            RespCommand[] subcommands = command.array;
+            if (subcommands.length > 0 && subcommands[0].isSimple()) {
+                String cmdName = subcommands[0].getValue();
+                if ("FULLRESYNC".equalsIgnoreCase(cmdName)) {
+                    if (subcommands.length >= 3) {
+                        String replicationId = subcommands[1].getValue();
+                        long offset = Long.parseLong(subcommands[2].getValue());
+                        System.out.println("Received FULLRESYNC command");
+                        System.out.println("ReplicationId: " + replicationId + ", offset: " + offset);
+                    }
+                } else {
+                    System.out.println("Unhandled replication command: " + cmdName);
+                }
+            } else {
+                System.out.println("Received array command with non-simple first element");
+            }
         } else {
             throw new IOException("Unexpected command format");
         }
     }
+
 
 
 
