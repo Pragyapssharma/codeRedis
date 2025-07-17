@@ -57,19 +57,37 @@ class ClientHandler extends Thread {
 
                     String command = args.get(0).toUpperCase();
                     
-                    if (Config.isReplica) {
-                        // Process replicated command silently
+//                    if (Config.isReplica) {
+//                        // Process replicated command silently
+//                        switch (command) {
+//                            case "SET":
+//                                handleSet(args, null); // null OutputStream => no reply
+//                                break;
+//                            default:
+//                                System.out.println("Replica received unsupported command: " + command);
+//                                break;
+//                        }
+//                        continue;
+//                    }
+                    if (Config.isReplica && (command.equals("SET") || command.equals("PING") || command.equals("ECHO"))) {
+                        // Only swallow known replication commands; let other commands go through
                         switch (command) {
                             case "SET":
-                                handleSet(args, null); // null OutputStream => no reply
+                                handleSet(args, null);
                                 break;
-                            default:
-                                System.out.println("Replica received unsupported command: " + command);
+                            case "PING":
+                                out.write("+PONG\r\n".getBytes());
+                                break;
+                            case "ECHO":
+                                if (args.size() >= 2) {
+                                    String echo = args.get(1);
+                                    out.write(("$" + echo.length() + "\r\n" + echo + "\r\n").getBytes());
+                                }
                                 break;
                         }
                         continue;
                     }
-                    
+
                     switch (command) {
                         case "PING":
                             out.write("+PONG\r\n".getBytes());
