@@ -254,15 +254,10 @@ class ClientHandler extends Thread {
         String response;
         
         if (kv == null || kv.hasExpired()) {
-        	out.write("$-1\r\n".getBytes());
-            System.out.println("GET " + key + " => (nil)");
-            response = "$-1\r\n"; // will return $-1\r\n
+            response = "$-1\r\n"; // Null bulk string
         } else {
-        	String value = kv.value;
-        	response = "$" + value.length() + "\r\n" + value + "\r\n";
-        	String bulkResponse = "$" + value.length() + "\r\n" + value + "\r\n";
-            out.write(bulkResponse.getBytes());
-            System.out.println("GET " + key + " => " + value);
+            String value = kv.value;
+            response = "$" + value.length() + "\r\n" + value + "\r\n";
         }
 
         System.out.println("<< RESP GET-REPLY: " + response
