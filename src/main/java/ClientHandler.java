@@ -288,41 +288,76 @@ class ClientHandler extends Thread {
 //    }
 
     
+//    public static void handleConfig(List<String> args, OutputStream out) throws IOException {
+//        if (args.size() < 2) {
+//            out.write(("-ERR wrong number of arguments for 'CONFIG'\r\n").getBytes());
+//            return;
+//        }
+//
+//        String subCommand = args.get(1).toLowerCase();
+//        if ("get".equals(subCommand)) {
+//            if (args.size() < 3) {
+//                out.write(("-ERR wrong number of arguments for 'CONFIG GET'\r\n").getBytes());
+//                return;
+//            }
+//
+//            String configKey = args.get(2);
+//            switch (configKey) {
+//                case "dir":
+//                    out.write(("$" + Config.dir.length() + "\r\n" + Config.dir + "\r\n").getBytes());
+//                    break;
+//                case "dbfilename":
+//                    out.write(("$" + Config.dbFilename.length() + "\r\n" + Config.dbFilename + "\r\n").getBytes());
+//                    break;
+//                case "port":
+//                    out.write(("$" + String.valueOf(Config.port).length() + "\r\n" + Config.port + "\r\n").getBytes());
+//                    break;
+//                case "replica":
+//                    out.write(("$" + String.valueOf(Config.isReplica).length() + "\r\n" + Config.isReplica + "\r\n").getBytes());
+//                    break;
+//                default:
+//                    out.write(("-ERR unknown configuration parameter\r\n").getBytes());
+//                    break;
+//            }
+//        } else {
+//            out.write(("-ERR unknown CONFIG subcommand\r\n").getBytes());
+//        }
+//    }
+    
     public static void handleConfig(List<String> args, OutputStream out) throws IOException {
-        if (args.size() < 2) {
-            out.write(("-ERR wrong number of arguments for 'CONFIG'\r\n").getBytes());
+        if (args.size() < 3) {
+            out.write(("-ERR wrong number of arguments for 'CONFIG GET'\r\n").getBytes());
             return;
         }
 
-        String subCommand = args.get(1).toLowerCase();
-        if ("get".equals(subCommand)) {
-            if (args.size() < 3) {
-                out.write(("-ERR wrong number of arguments for 'CONFIG GET'\r\n").getBytes());
-                return;
-            }
+        String configKey = args.get(2);
+        String value;
 
-            String configKey = args.get(2);
-            switch (configKey) {
-                case "dir":
-                    out.write(("$" + Config.dir.length() + "\r\n" + Config.dir + "\r\n").getBytes());
-                    break;
-                case "dbfilename":
-                    out.write(("$" + Config.dbFilename.length() + "\r\n" + Config.dbFilename + "\r\n").getBytes());
-                    break;
-                case "port":
-                    out.write(("$" + String.valueOf(Config.port).length() + "\r\n" + Config.port + "\r\n").getBytes());
-                    break;
-                case "replica":
-                    out.write(("$" + String.valueOf(Config.isReplica).length() + "\r\n" + Config.isReplica + "\r\n").getBytes());
-                    break;
-                default:
-                    out.write(("-ERR unknown configuration parameter\r\n").getBytes());
-                    break;
-            }
-        } else {
-            out.write(("-ERR unknown CONFIG subcommand\r\n").getBytes());
+        switch (configKey) {
+            case "dir":
+                value = Config.dir;
+                break;
+            case "dbfilename":
+                value = Config.dbFilename;
+                break;
+            case "port":
+                value = String.valueOf(Config.port);
+                break;
+            case "replica":
+                value = String.valueOf(Config.isReplica);
+                break;
+            default:
+                out.write(("-ERR unknown configuration parameter\r\n").getBytes());
+                return;
         }
+
+        // Return array of 2 bulk strings: key and value
+        String response = "*" + 2 + "\r\n" +
+                          "$" + configKey.length() + "\r\n" + configKey + "\r\n" +
+                          "$" + value.length() + "\r\n" + value + "\r\n";
+        out.write(response.getBytes());
     }
+
     
     public static void handleKeys(List<String> args, OutputStream out) throws IOException {
         StringBuilder keysResponse = new StringBuilder("*" + keyValueStore.size() + "\r\n");
