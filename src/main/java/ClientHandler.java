@@ -42,9 +42,10 @@ class ClientHandler extends Thread {
             OutputStream out = clientSocket.getOutputStream()
         ) {
         	this.out = out;
-        	if (Config.isReplica) {
-                processMasterHandshake(in, out);
-            }
+        	if (Config.isReplica && !isReplicaConnection) {
+        	    processMasterHandshake(in, out);
+        	    isReplicaConnection = true;
+        	}
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
                 System.out.println("Received: " + inputLine);
@@ -69,7 +70,7 @@ class ClientHandler extends Thread {
 //                        }
 //                        continue;
 //                    }
-                    if (Config.isReplica && (command.equals("SET") || command.equals("PING") || command.equals("ECHO"))) {
+                    if (isReplicaConnection && (command.equals("SET") || command.equals("PING") || command.equals("ECHO"))) {
                         // Only swallow known replication commands; let other commands go through
                         switch (command) {
                             case "SET":
@@ -257,8 +258,11 @@ class ClientHandler extends Thread {
             out.write("$-1\r\n".getBytes()); // Null bulk string
         } else {
             String value = kv.value;
-            String response = "$" + value.length() + "\r\n" + value + "\r\n";
-            out.write(response.getBytes());
+            byte[] valueBytes = value.getBytes("UTF-8");
+            System.out.println("GET response for key '" + key + "': " + kv.value);
+            out.write(("$" + valueBytes.length + "\r\n").getBytes("UTF-8"));
+            out.write(valueBytes);
+            out.write("\r\n".getBytes("UTF-8"));
         }
     }
     
@@ -538,8 +542,7 @@ class ClientHandler extends Thread {
             
             new Thread(() -> {
                 try {
-                    Socket masterSocket = new Socket("localhost", 6379);  // replace if using dynamic config
-                    InputStream masterIn = masterSocket.getInputStream();
+                	InputStream masterIn = clientSocket.getInputStream();
                     byte[] buffer = new byte[8192];
                     List<Byte> commandBuffer = new ArrayList<>();
 

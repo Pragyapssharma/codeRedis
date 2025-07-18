@@ -41,6 +41,10 @@ class RespCommand {
         return value != null;
     }
     
+    public boolean isArray() {
+        return array != null;
+    }
+    
     @Override
     public String toString() {
         if (isSimple()) {
