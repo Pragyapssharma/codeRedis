@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/*
 class ClientHandler extends Thread {
     private Socket clientSocket;
     private InputStream in;
@@ -267,6 +268,177 @@ class ClientHandler extends Thread {
             out.write("\r\n".getBytes("UTF-8"));
         }
     }
+    */
+    
+class ClientHandler extends Thread {
+    private Socket clientSocket;
+    private OutputStream out;
+    private static final Map<String, KeyValue> keyValueStore = new ConcurrentHashMap<>();
+    private static final List<OutputStream> replicaOutputs = new CopyOnWriteArrayList<>();
+    private static final byte[] EMPTY_RDB_FILE = new byte[] {
+        0x52, 0x45, 0x44, 0x49, // REDI
+        0x53, 0x30, 0x30, 0x30, 0x39, // S0009
+        (byte) 0xFA, 0x00,
+        (byte) 0xFF,
+        0x00, 0x00,
+        0x00, 0x00
+    };
+
+    private boolean isReplicaConnection = false;
+
+    public ClientHandler(Socket clientSocket) {
+        this.clientSocket = clientSocket;
+    }
+
+    public static void putKeyWithExpiry(String key, String value, long expirationUnixMs) {
+        keyValueStore.put(key, new KeyValue(value, expirationUnixMs));
+    }
+
+    @Override
+    public void run() {
+        try (
+            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            OutputStream out = clientSocket.getOutputStream()
+        ) {
+            this.out = out;
+
+            if (Config.isReplica && !isReplicaConnection) {
+                processMasterHandshake(in, out);
+                isReplicaConnection = true;
+            }
+
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                if (!inputLine.startsWith("*")) continue;
+
+                int argCount = Integer.parseInt(inputLine.substring(1));
+                List<String> args = readArguments(in, argCount);
+                if (args.isEmpty()) continue;
+
+                String command = args.get(0).toUpperCase();
+
+                if (isReplicaConnection && (command.equals("SET") || command.equals("PING") || command.equals("ECHO"))) {
+                    switch (command) {
+                        case "SET": handleSet(args, null); break;
+                        case "PING": out.write("+PONG\r\n".getBytes()); break;
+                        case "ECHO":
+                            if (args.size() >= 2) {
+                                String echo = args.get(1);
+                                out.write(("$" + echo.length() + "\r\n" + echo + "\r\n").getBytes());
+                            }
+                            break;
+                    }
+                    continue;
+                }
+
+                switch (command) {
+                    case "PING": out.write("+PONG\r\n".getBytes()); break;
+                    case "REPLCONF": out.write("+OK\r\n".getBytes()); break;
+                    case "PSYNC": handlePsync(args, out); break;
+                    case "ECHO":
+                        if (args.size() >= 2) {
+                            String echo = args.get(1);
+                            out.write(("$" + echo.length() + "\r\n" + echo + "\r\n").getBytes());
+                        }
+                        break;
+                    case "SET": handleSet(args, out); break;
+                    case "GET": handleGet(args, out); break;
+                    case "CONFIG": handleConfig(args, out); break;
+                    case "KEYS": handleKeys(args, out); break;
+                    case "INFO": handleInfo(args, out); break;
+                    default: out.write("-ERR unknown command\r\n".getBytes()); break;
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("IOException: " + e.getMessage());
+        } finally {
+            try {
+                clientSocket.close();
+            } catch (IOException ignored) {}
+            if (isReplicaConnection) {
+                replicaOutputs.remove(out);
+                System.out.println("Replica removed. Remaining: " + replicaOutputs.size());
+            }
+        }
+    }
+
+    private List<String> readArguments(BufferedReader in, int count) throws IOException {
+        List<String> args = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            String lenLine = in.readLine();
+            if (lenLine == null || !lenLine.startsWith("$")) throw new IOException("Expected bulk string");
+            args.add(in.readLine());
+        }
+        return args;
+    }
+
+    public static void handleSet(List<String> args, OutputStream out) throws IOException {
+        if (args.size() < 3) {
+            if (out != null) out.write("-ERR wrong number of arguments for 'SET'\r\n".getBytes());
+            return;
+        }
+
+        String key = args.get(1);
+        String value = args.get(2);
+        long expiryMillis = 0;
+
+        if (args.size() >= 5 && args.get(3).equalsIgnoreCase("px")) {
+            try {
+                expiryMillis = Long.parseLong(args.get(4));
+            } catch (NumberFormatException e) {
+                if (out != null) out.write("-ERR PX value is not a number\r\n".getBytes());
+                return;
+            }
+        }
+
+        long expirationTimestamp = expiryMillis > 0 ? System.currentTimeMillis() + expiryMillis : 0;
+        keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
+
+        if (out != null) out.write("+OK\r\n".getBytes());
+
+        if (out != null) {
+            StringBuilder command = new StringBuilder();
+            command.append("*3\r\n");
+            command.append("$3\r\nSET\r\n");
+            command.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
+            command.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
+
+            byte[] commandBytes = command.toString().getBytes();
+            for (OutputStream replicaOut : replicaOutputs) {
+                if (replicaOut != out) {
+                    try {
+                        replicaOut.write(commandBytes);
+                        replicaOut.flush();
+                    } catch (IOException e) {
+                        replicaOutputs.remove(replicaOut);
+                    }
+                }
+            }
+        }
+    }
+
+    private void handleGet(List<String> args, OutputStream out) throws IOException {
+        if (args.size() != 2) {
+            out.write("-ERR wrong number of arguments for 'GET'\r\n".getBytes());
+            return;
+        }
+
+        String key = args.get(1);
+        KeyValue kv = keyValueStore.get(key);
+
+        if (kv == null || kv.hasExpired()) {
+            out.write("$-1\r\n".getBytes());
+        } else {
+            String value = kv.value;
+            byte[] valueBytes = value.getBytes("UTF-8");
+            out.write(("$" + valueBytes.length + "\r\n").getBytes("UTF-8"));
+            out.write(valueBytes);
+            out.write("\r\n".getBytes("UTF-8"));
+        }
+    }
+
+    
+    
     
 //    private void handleGet(List<String> args, OutputStream out) throws IOException {
 //        if (args.size() != 2) {
