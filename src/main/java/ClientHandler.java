@@ -5,16 +5,18 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 class ClientHandler extends Thread {
     private Socket clientSocket;
     private InputStream in;
     private OutputStream out;
-    private static final Map<String, KeyValue> keyValueStore = new HashMap<>();
+    private static final Map<String, KeyValue> keyValueStore = new ConcurrentHashMap<>();
     private static final List<OutputStream> replicaOutputs = new CopyOnWriteArrayList<>();
     private static final byte[] EMPTY_RDB_FILE = new byte[] {
     	    (byte) 0x52, (byte) 0x45, (byte) 0x44, (byte) 0x49, // REDI
@@ -255,7 +257,6 @@ class ClientHandler extends Thread {
         KeyValue kv = keyValueStore.get(key);
 
         if (kv == null || kv.hasExpired()) {
-        	System.out.println("Responding to GET with bulk string: " + kv.value);
             out.write("$-1\r\n".getBytes("UTF-8")); // Null bulk string
         } else {
             String value = kv.value;
@@ -560,10 +561,14 @@ class ClientHandler extends Thread {
 
                         try {
                             RespParser parser = new RespParser(commandBytes);
+                            int lastPos = 0;
+
                             while (parser.hasNext()) {
+                            	int before = parser.getPos();
                                 RespCommand cmd = parser.next();
                                 if (cmd == null) break;
                                 String[] parts = cmd.getArray();
+                               if (parts != null && parts.length > 0) {
                                 String command = parts[0].toUpperCase();
 
                                 if ("SET".equals(command)) {
@@ -572,8 +577,16 @@ class ClientHandler extends Thread {
                                     System.out.println("Unhandled replication command: " + command);
                                 }
                             }
+                                lastPos = parser.getPos();
+                            }
 
-                            commandBuffer.clear(); // ready for next command
+                         // Keep leftover bytes
+                            byte[] leftover = Arrays.copyOfRange(commandBytes, lastPos, commandBytes.length);
+                            commandBuffer.clear();
+                            for (byte b : leftover) {
+                                commandBuffer.add(b);
+                            }
+
                         } catch (Exception e) {
                             System.out.println("Partial replication command, waiting: " + e.getMessage());
                         }
