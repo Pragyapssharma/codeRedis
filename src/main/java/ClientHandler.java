@@ -253,16 +253,13 @@ class ClientHandler extends Thread {
         String key = args.get(1);
         KeyValue kv = keyValueStore.get(key);
 
-        String response;
-        
         if (kv == null || kv.hasExpired()) {
-            response = "$-1\r\n"; // Null bulk string
+            out.write("$-1\r\n".getBytes()); // Null bulk string
         } else {
             String value = kv.value;
-            response = "$" + value.length() + "\r\n" + value + "\r\n";
+            String response = "$" + value.length() + "\r\n" + value + "\r\n";
+            out.write(response.getBytes());
         }
-
-        out.write(response.getBytes());
     }
     
 //    private void handleGet(List<String> args, OutputStream out) throws IOException {
