@@ -247,7 +247,7 @@ class ClientHandler extends Thread {
     
     private void handleGet(List<String> args, OutputStream out) throws IOException {
         if (args.size() != 2) {
-            out.write("-ERR wrong number of arguments for 'GET'\r\n".getBytes());
+            out.write("-ERR wrong number of arguments for 'GET'\r\n".getBytes("UTF-8"));
             return;
         }
 
@@ -255,11 +255,12 @@ class ClientHandler extends Thread {
         KeyValue kv = keyValueStore.get(key);
 
         if (kv == null || kv.hasExpired()) {
-            out.write("$-1\r\n".getBytes()); // Null bulk string
+        	System.out.println("Responding to GET with bulk string: " + kv.value);
+            out.write("$-1\r\n".getBytes("UTF-8")); // Null bulk string
         } else {
             String value = kv.value;
             byte[] valueBytes = value.getBytes("UTF-8");
-            System.out.println("GET response for key '" + key + "': " + kv.value);
+            System.out.println("Responding to GET with bulk: " + kv.value);
             out.write(("$" + valueBytes.length + "\r\n").getBytes("UTF-8"));
             out.write(valueBytes);
             out.write("\r\n".getBytes("UTF-8"));
