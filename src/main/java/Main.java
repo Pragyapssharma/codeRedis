@@ -77,7 +77,7 @@ public class Main {
             send(out, "*1\r\n$4\r\nPING\r\n");
             System.out.println("Sent PING to master");
             System.out.println("Received from master: " + readLine(in));
-            readLine(in);
+            
 
             String portStr = Integer.toString(Config.getPort());
             String replconfPort = String.format("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
@@ -85,12 +85,12 @@ public class Main {
             send(out, replconfPort);
             String replconfResp1 = readLine(in);
             System.out.println("Received from master: " + replconfResp1);
-            readLine(in);
+           
 
             send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
             String replconfResp2 = readLine(in);
             System.out.println("Received from master: " + replconfResp2);
-            readLine(in);
+            
 
             send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
             System.out.println("Received: " + readLine(in));
