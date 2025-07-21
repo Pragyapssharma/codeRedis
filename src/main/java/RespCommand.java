@@ -1,66 +1,29 @@
 import java.util.Arrays;
 
 class RespCommand {
-//    private final String[] array;
-	private String value;
+    private String value;
     private String[] array;
 
     public RespCommand(String value) {
         this.value = value;
-//        this.array = null;
     }
-    
+
     public RespCommand(String[] array) {
         this.array = array;
-    }
-    
-//    public RespCommand(RespCommand[] array) {
-//       this.array = array;
-//        this.value = null; // No main array
-//    }
-    
-    public String getValue() {
-        return value;
-    }
-    
-    
-
-
-//    public String[] getArray() {
-//        return array;
-//    }
-    
-//    public RespCommand[] getSubCommands() {
-//        return subCommands;
-//    }
-    
-//    public String[] getArray() {
-//        if (array == null) return null;
-//
-//        String[] result = new String[array.length];
-//        for (int i = 0; i < array.length; i++) {
-//            result[i] = array[i].getValue();
-//        }
-//        return result;
-//    }
-//    
-//    public boolean isSimple() {
-//        return value != null;
-//    }
-//    
-//    public boolean isArray() {
-//        return array != null;
-//    }
-    
-    public String[] getArray() {
-        return array;
     }
 
     public boolean isSimple() {
         return array == null && value != null;
     }
 
-    
+    public String getValue() {
+        return value;
+    }
+
+    public String[] getArray() {
+        return array;
+    }
+
     @Override
     public String toString() {
         if (isSimple()) {

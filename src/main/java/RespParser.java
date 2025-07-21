@@ -101,7 +101,7 @@ class RespParser {
     private RespCommand parseArrayResponse() throws IOException {
         int length = parseLength();
         if (length == -1) {
-            return new RespCommand(new String[0]); // ✅ Empty command array
+            return new RespCommand(new String[0]);
         }
 
         List<String> values = new ArrayList<>();
@@ -111,7 +111,7 @@ class RespParser {
             values.add(element.getValue());
         }
 
-        return new RespCommand(values.toArray(new String[0])); // ✅ Return command array
+        return new RespCommand(values.toArray(new String[0])); // ✅ Command array
     }
 
 //    private RespCommand parseArrayResponse() throws IOException {
