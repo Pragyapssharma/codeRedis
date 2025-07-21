@@ -109,6 +109,20 @@ class ClientHandler extends Thread {
                             out.write("-ERR wrong number of arguments for PSYNC\r\n".getBytes("UTF-8"));
                         }
                         break;
+                        
+                    case "INFO":
+                        if (args.size() == 2 && "replication".equalsIgnoreCase(args.get(1))) {
+                            String replid = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"; // or generate + store it in Config
+                            String info = "# Replication\r\n" +
+                                          "role:master\r\n" +
+                                          "master_replid:" + replid + "\r\n" +
+                                          "master_repl_offset:0\r\n";
+                            String resp = "$" + info.length() + "\r\n" + info + "\r\n";
+                            out.write(resp.getBytes("UTF-8"));
+                        } else {
+                            out.write("-ERR unknown subcommand\r\n".getBytes("UTF-8"));
+                        }
+                        break;
 
                     default:
                         out.write("-ERR unknown command\r\n".getBytes("UTF-8"));
