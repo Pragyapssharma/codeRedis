@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -124,6 +125,24 @@ class ClientHandler extends Thread {
                             out.write(resp.getBytes("UTF-8"));
                         } else {
                             out.write("-ERR unknown subcommand\r\n".getBytes("UTF-8"));
+                        }
+                        break;
+                        
+                    case "KEYS":
+                        if (args.size() == 2 && "*".equals(args.get(1))) {
+                            Set<String> keys = keyValueStore.keySet(); // assuming you're using a map named keyValueStore
+                            StringBuilder resp = new StringBuilder();
+
+                            resp.append("*").append(keys.size()).append("\r\n"); // RESP array header
+
+                            for (String key : keys) {
+                                resp.append("$").append(key.length()).append("\r\n");
+                                resp.append(key).append("\r\n");
+                            }
+
+                            out.write(resp.toString().getBytes("UTF-8"));
+                        } else {
+                            out.write("-ERR unsupported KEYS usage\r\n".getBytes("UTF-8"));
                         }
                         break;
 
