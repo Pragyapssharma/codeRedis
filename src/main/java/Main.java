@@ -3,229 +3,248 @@ import java.net.*;
 import java.util.*;
 
 public class Main {
-    private static ServerSocket serverSocket;
+	private static ServerSocket serverSocket;
 
-    public static void main(String[] args) {
-        String masterHost = null;
-        int masterPort = 0;
-        int port = 6379;
+	public static void main(String[] args) {
+		String masterHost = null;
+		int masterPort = 0;
+		int port = 6379;
 
-        // Parse CLI flags or config
-        for (int i = 0; i < args.length - 1; i++) {
-        	if (args[i].equals("--dir")) {
-                Config.dir = args[i + 1];
-            } else if (args[i].equals("--dbfilename")) {
-                Config.dbFilename = args[i + 1];
-            } else if (args[i].equals("--port")) {
-                port = Integer.parseInt(args[i + 1]);
-                Config.setPort(port);
-            } else if (args[i].equals("--replicaof")) {
-                String[] parts = args[i + 1].split(" ");
-                if (parts.length == 2) {
-                    masterHost = parts[0];
-                    masterPort = Integer.parseInt(parts[1]);
-                    Config.setReplica(true);
-                }
-            }
-        }
+		// Parse CLI flags or config
+		for (int i = 0; i < args.length - 1; i++) {
+			if (args[i].equals("--dir")) {
+				Config.dir = args[i + 1];
+			} else if (args[i].equals("--dbfilename")) {
+				Config.dbFilename = args[i + 1];
+			} else if (args[i].equals("--port")) {
+				port = Integer.parseInt(args[i + 1]);
+				Config.setPort(port);
+			} else if (args[i].equals("--replicaof")) {
+				String[] parts = args[i + 1].split(" ");
+				if (parts.length == 2) {
+					masterHost = parts[0];
+					masterPort = Integer.parseInt(parts[1]);
+					Config.setReplica(true);
+				}
+			}
+		}
 
-        // Load RDB file if configured
-        if (!Config.dir.isEmpty() && !Config.dbFilename.isEmpty()) {
-            String filePath = Config.dir + "/" + Config.dbFilename;
-            File rdbFile = new File(filePath);
-            if (rdbFile.exists()) {
-                try (FileInputStream fis = new FileInputStream(rdbFile)) {
-                    RDBParser.loadFromStream(fis);
-                    System.out.println("Loaded RDB file: " + filePath);
-                } catch (IOException e) {
-                    System.out.println("Failed to read RDB: " + e.getMessage());
-                }
-            } else {
-                System.out.println("No RDB file found, starting with empty DB");
-            }
-        } else {
-            System.out.println("No RDB config provided, starting with empty DB");
-        }
+		// Load RDB file if configured
+		if (!Config.dir.isEmpty() && !Config.dbFilename.isEmpty()) {
+			String filePath = Config.dir + "/" + Config.dbFilename;
+			File rdbFile = new File(filePath);
+			if (rdbFile.exists()) {
+				try (FileInputStream fis = new FileInputStream(rdbFile)) {
+					RDBParser.loadFromStream(fis);
+					System.out.println("Loaded RDB file: " + filePath);
+				} catch (IOException e) {
+					System.out.println("Failed to read RDB: " + e.getMessage());
+				}
+			} else {
+				System.out.println("No RDB file found, starting with empty DB");
+			}
+		} else {
+			System.out.println("No RDB config provided, starting with empty DB");
+		}
 
-        // Start replication thread if in replica mode
-        if (Config.isReplica()) {
-            String finalMasterHost = masterHost;
-            int finalMasterPort = masterPort;
-            new Thread(() -> connectToMaster(finalMasterHost, finalMasterPort)).start();
-        }
+		// Start replication thread if in replica mode
+		if (Config.isReplica()) {
+			String finalMasterHost = masterHost;
+			int finalMasterPort = masterPort;
+			new Thread(() -> connectToMaster(finalMasterHost, finalMasterPort)).start();
+		}
 
-        // Start client-facing server
-        try {
-            serverSocket = new ServerSocket();
-            serverSocket.setReuseAddress(true);
-            serverSocket.bind(new InetSocketAddress(port));
-            System.out.println("Server is listening on port " + port);
+		// Start client-facing server
+		try {
+			serverSocket = new ServerSocket();
+			serverSocket.setReuseAddress(true);
+			serverSocket.bind(new InetSocketAddress(port));
+			System.out.println("Server is listening on port " + port);
 
-            while (true) {
-                Socket clientSocket = serverSocket.accept();
-                System.out.println("Client connected.");
-                new ClientHandler(clientSocket).start();
-            }
-        } catch (IOException e) {
-            System.out.println("IOException: " + e.getMessage());
-        }
-    }
+			while (true) {
+				Socket clientSocket = serverSocket.accept();
+				System.out.println("Client connected.");
+				new ClientHandler(clientSocket).start();
+			}
+		} catch (IOException e) {
+			System.out.println("IOException: " + e.getMessage());
+		}
+	}
 
-    private static void connectToMaster(String masterHost, int masterPort) {
-        try {
-        	Socket masterSocket = new Socket(masterHost, masterPort);
-            InputStream in = masterSocket.getInputStream();
-            OutputStream out = masterSocket.getOutputStream();
+	private static void connectToMaster(String masterHost, int masterPort) {
+		try {
+			Socket masterSocket = new Socket(masterHost, masterPort);
+			InputStream in = masterSocket.getInputStream();
+			OutputStream out = masterSocket.getOutputStream();
 
-            // Handshake sequence
-            send(out, "*1\r\n$4\r\nPING\r\n");
-            System.out.println("Sent PING to master");
-            System.out.println("Received from master: " + readLine(in));
-            
+			// Handshake sequence
+			send(out, "*1\r\n$4\r\nPING\r\n");
+			System.out.println("Sent PING to master");
+			System.out.println("Received from master: " + readLine(in));
 
-            String portStr = Integer.toString(Config.getPort());
-            String replconfPort = String.format("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
-                    portStr.length(), portStr);
-            send(out, replconfPort);
-            String replconfResp1 = readLine(in);
-            System.out.println("Received from master: " + replconfResp1);
-           
+			String portStr = Integer.toString(Config.getPort());
+			String replconfPort = String.format("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
+					portStr.length(), portStr);
+			send(out, replconfPort);
+			String replconfResp1 = readLine(in);
+			System.out.println("Received from master: " + replconfResp1);
 
-            send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
-            String replconfResp2 = readLine(in);
-            System.out.println("Received from master: " + replconfResp2);
-            
+			send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
+			String replconfResp2 = readLine(in);
+			System.out.println("Received from master: " + replconfResp2);
 
-            send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
-            System.out.println("Received: " + readLine(in));
-            readLine(in); // FULLRESYNC
+			send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
+			System.out.println("Received: " + readLine(in));
+			readLine(in); // FULLRESYNC
 
-            // Read RDB bulk string (skip it if present)
-            String rdbHeader = readLine(in);
-            if (rdbHeader.startsWith("$")) {
-                int rdbLength = Integer.parseInt(rdbHeader.substring(1));
-                System.out.println("Read " + rdbLength + " RDB bytes from master.");
-            }
+			// Read RDB bulk string (skip it if present)
+			String rdbHeader = readLine(in);
+			if (rdbHeader.startsWith("$")) {
+				int rdbLength = Integer.parseInt(rdbHeader.substring(1));
+				System.out.println("Read " + rdbLength + " RDB bytes from master.");
+			}
 
-            // Read streaming propagated commands
-            new Thread(() -> {
-                try {
-                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-                    byte[] tmp = new byte[1024];
-                    int read;
-                    while ((read = in.read(tmp)) != -1) {
-                        buffer.write(tmp, 0, read);
-                        byte[] data = buffer.toByteArray();
-                        RespParser parser = new RespParser(data);
-                        int lastPos = 0;
+			// Read streaming propagated commands
+			new Thread(() -> {
+				try {
+					ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+					byte[] tmp = new byte[1024];
+					int read;
+					while ((read = in.read(tmp)) != -1) {
+						buffer.write(tmp, 0, read);
+						byte[] data = buffer.toByteArray();
+						RespParser parser = new RespParser(data);
+						int lastPos = 0;
 
-                        while (parser.hasNext()) {
-                            RespCommand cmd = parser.next();
-                            String[] arr = cmd.getArray();
-                            lastPos = parser.getPos();
+						while (parser.hasNext()) {
+							RespCommand cmd = parser.next();
+							String[] arr = cmd.getArray();
+							String val = cmd.getValue();
+							lastPos = parser.getPos();
 
-                            if (arr != null && arr.length == 3 &&
-                                "REPLCONF".equalsIgnoreCase(arr[0]) &&
-                                "GETACK".equalsIgnoreCase(arr[1]) &&
-                                "*".equals(arr[2])) {
+							if (arr == null && val != null) {
 
-                            	// Construct RESP ACK response
-                                String ackResponse = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
-                                out.write(ackResponse.getBytes("UTF-8"));
-                                out.flush();
-                                System.out.println("Sent ACK to master");
-                            } else {
-                                processCommand(cmd);
-                            }
-                        }
+								bulkBuffer.add(val);
 
-                        if (lastPos > 0 && lastPos <= data.length) {
-                            buffer.reset();
-                            buffer.write(data, lastPos, data.length - lastPos);
-                        }
-                    }
-                } catch (IOException e) {
-                    System.err.println("Replication stream error: " + e.getMessage());
-                }
-            }).start();
+								if (bulkBuffer.size() == 3) {
+									String[] assembled = bulkBuffer.toArray(new String[0]);
+									bulkBuffer.clear();
 
-        } catch (IOException e) {
-            System.err.println("Failed to connect to master: " + e.getMessage());
-        }
-    }
+									if ("REPLCONF".equalsIgnoreCase(assembled[0])
+											&& "GETACK".equalsIgnoreCase(assembled[1]) && "*".equals(assembled[2])) {
 
-    private static String readLine(InputStream in) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        int b;
-        boolean cr = false;
-        while ((b = in.read()) != -1) {
-            if (cr && b == '\n') break;
-            if (cr) {
-                sb.append('\r');
-                cr = false;
-            }
-            if (b == '\r') cr = true;
-            else sb.append((char) b);
-        }
-        return sb.toString();
-    }
+										String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+										out.write(ack.getBytes("UTF-8"));
+										out.flush();
+										System.out.println("Sent ACK to master.");
+									}
+								}
+							} else if (arr != null) {
+								if (arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0])
+										&& "GETACK".equalsIgnoreCase(arr[1]) && "*".equals(arr[2])) {
 
-    private static List<String> bulkBuffer = new ArrayList<>();
+									String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+									out.write(ack.getBytes("UTF-8"));
+									out.flush();
+									System.out.println("Sent ACK to master.");
 
-    private static int processPropagatedCommands(byte[] data) {
-        try {
-            System.out.println("Processing propagated RESP commands...");
-            RespParser parser = new RespParser(data);
-            int lastPos = 0;
+								} else {
+									processCommand(cmd);
+								}
+							}
+						}
 
-            while (parser.hasNext()) {
-                RespCommand cmd = parser.next();
-                if (cmd == null) break;
+						if (lastPos > 0 && lastPos <= data.length) {
+							buffer.reset();
+							buffer.write(data, lastPos, data.length - lastPos);
+						}
+					}
+				} catch (IOException e) {
+					System.err.println("Replication stream error: " + e.getMessage());
+				}
+			}).start();
 
-                String[] arr = cmd.getArray();
-                String val = cmd.getValue();
+		} catch (IOException e) {
+			System.err.println("Failed to connect to master: " + e.getMessage());
+		}
+	}
 
-                if (arr != null) {
-                    System.out.println("Command array: " + Arrays.toString(arr));
-                    processCommand(cmd);
-                    lastPos = parser.getPos();
-                    bulkBuffer.clear();
-                } else if (val != null) {
-                    bulkBuffer.add(val);
-                    if (bulkBuffer.size() == 3) {
-                        String[] complete = bulkBuffer.toArray(new String[0]);
-                        System.out.println("Command array (assembled): " + Arrays.toString(complete));
-                        processCommand(new RespCommand(complete));
-                        bulkBuffer.clear();
-                        lastPos = parser.getPos();
-                    }
-                }
-            }
+	private static String readLine(InputStream in) throws IOException {
+		StringBuilder sb = new StringBuilder();
+		int b;
+		boolean cr = false;
+		while ((b = in.read()) != -1) {
+			if (cr && b == '\n')
+				break;
+			if (cr) {
+				sb.append('\r');
+				cr = false;
+			}
+			if (b == '\r')
+				cr = true;
+			else
+				sb.append((char) b);
+		}
+		return sb.toString();
+	}
 
-            return lastPos;
-        } catch (Exception e) {
-            System.err.println("Failed to process command: " + e.getMessage());
-            bulkBuffer.clear();
-            return 0;
-        }
-    }
+	private static List<String> bulkBuffer = new ArrayList<>();
 
-    private static void processCommand(RespCommand command) {
-        String[] elements = command.getArray();
-        if (elements != null && elements.length > 0) {
-            String cmd = elements[0].toUpperCase();
-            if ("SET".equals(cmd)) {
-                try {
-                    ClientHandler.handleSet(Arrays.asList(elements), null, true);
-                } catch (IOException e) {
-                    System.err.println("Error applying propagated SET: " + e.getMessage());
-                }
-            }
-        }
-    }
+	private static int processPropagatedCommands(byte[] data) {
+		try {
+			System.out.println("Processing propagated RESP commands...");
+			RespParser parser = new RespParser(data);
+			int lastPos = 0;
 
-    private static void send(OutputStream out, String data) throws IOException {
-        out.write(data.getBytes("UTF-8"));
-        out.flush();
-    }
+			while (parser.hasNext()) {
+				RespCommand cmd = parser.next();
+				if (cmd == null)
+					break;
+
+				String[] arr = cmd.getArray();
+				String val = cmd.getValue();
+
+				if (arr != null) {
+					System.out.println("Command array: " + Arrays.toString(arr));
+					processCommand(cmd);
+					lastPos = parser.getPos();
+					bulkBuffer.clear();
+				} else if (val != null) {
+					bulkBuffer.add(val);
+					if (bulkBuffer.size() == 3) {
+						String[] complete = bulkBuffer.toArray(new String[0]);
+						System.out.println("Command array (assembled): " + Arrays.toString(complete));
+						processCommand(new RespCommand(complete));
+						bulkBuffer.clear();
+						lastPos = parser.getPos();
+					}
+				}
+			}
+
+			return lastPos;
+		} catch (Exception e) {
+			System.err.println("Failed to process command: " + e.getMessage());
+			bulkBuffer.clear();
+			return 0;
+		}
+	}
+
+	private static void processCommand(RespCommand command) {
+		String[] elements = command.getArray();
+		if (elements != null && elements.length > 0) {
+			String cmd = elements[0].toUpperCase();
+			if ("SET".equals(cmd)) {
+				try {
+					ClientHandler.handleSet(Arrays.asList(elements), null, true);
+				} catch (IOException e) {
+					System.err.println("Error applying propagated SET: " + e.getMessage());
+				}
+			}
+		}
+	}
+
+	private static void send(OutputStream out, String data) throws IOException {
+		out.write(data.getBytes("UTF-8"));
+		out.flush();
+	}
 }
