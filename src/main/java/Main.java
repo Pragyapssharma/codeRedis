@@ -104,8 +104,6 @@ public class Main {
             String rdbHeader = readLine(in);
             if (rdbHeader.startsWith("$")) {
                 int rdbLength = Integer.parseInt(rdbHeader.substring(1));
-//                byte[] rdbBytes = in.readNBytes(rdbLength);
-//                String trailer = readLine(in);
                 System.out.println("Read " + rdbLength + " RDB bytes from master.");
             }
 
@@ -118,10 +116,29 @@ public class Main {
                     while ((read = in.read(tmp)) != -1) {
                         buffer.write(tmp, 0, read);
                         byte[] data = buffer.toByteArray();
-                        int processed = processPropagatedCommands(data);
-                        if (processed > 0 && processed <= data.length) {
+                        RespParser parser = new RespParser(data);
+                        int lastPos = 0;
+
+                        while (parser.hasNext()) {
+                            RespCommand cmd = parser.next();
+                            String[] arr = cmd.getArray();
+                            lastPos = parser.getPos();
+
+                            if (arr != null && arr.length == 3 &&
+                                "REPLCONF".equalsIgnoreCase(arr[0]) &&
+                                "GETACK".equalsIgnoreCase(arr[1]) &&
+                                "*".equals(arr[2])) {
+
+                                String ackResp = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+                                send(out, ackResp);
+                            } else {
+                                processCommand(cmd);
+                            }
+                        }
+
+                        if (lastPos > 0 && lastPos <= data.length) {
                             buffer.reset();
-                            buffer.write(data, processed, data.length - processed);
+                            buffer.write(data, lastPos, data.length - lastPos);
                         }
                     }
                 } catch (IOException e) {

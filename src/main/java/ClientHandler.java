@@ -1,12 +1,9 @@
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,8 +12,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 class ClientHandler extends Thread {
     private Socket clientSocket;
-//    private InputStream in;
-//    private OutputStream out;
     private static final Map<String, KeyValue> keyValueStore = new ConcurrentHashMap<>();
     private static final List<OutputStream> replicaOutputs = new CopyOnWriteArrayList<>();
     private static final byte[] EMPTY_RDB_FILE = new byte[] {
