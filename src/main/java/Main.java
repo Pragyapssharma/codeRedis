@@ -5,6 +5,7 @@ import java.util.*;
 public class Main {
 	private static ServerSocket serverSocket;
 	private static List<String> bulkBuffer = new ArrayList<>();
+	private static long replicationOffset = 0;
 
 	public static void main(String[] args) {
 		String masterHost = null;
@@ -91,13 +92,13 @@ public class Main {
 
             send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
             System.out.println("Received: " + readLine(in));
-            readLine(in); // FULLRESYNC
+            readLine(in);
 
             String rdbHeader = readLine(in);
             if (rdbHeader.startsWith("$")) {
                 int rdbLength = Integer.parseInt(rdbHeader.substring(1));
-                in.read(new byte[rdbLength]); // skip bytes
-                readLine(in); // trailing CRLF
+                in.read(new byte[rdbLength]);
+                readLine(in);
                 System.out.println("Read " + rdbLength + " RDB bytes from master.");
             }
 
@@ -133,33 +134,36 @@ public class Main {
 	        while (parser.hasNext()) {
 	            RespCommand cmd = parser.next();
 	            lastPos = parser.getPos();
+	            replicationOffset += (lastPos - replicationOffset);
 
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
 
-	            // ✅ ACK handling
 	            if (arr != null && arr.length == 3 &&
 	                "REPLCONF".equalsIgnoreCase(arr[0]) &&
 	                "GETACK".equalsIgnoreCase(arr[1]) &&
 	                "*".equals(arr[2])) {
 
-	                String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+	            	String offsetStr = Long.toString(replicationOffset);
+	            	String ack = "*3\r\n" +
+	            	             "$8\r\nREPLCONF\r\n" +
+	            	             "$3\r\nACK\r\n" +
+	            	             "$" + offsetStr.length() + "\r\n" +
+	            	             offsetStr + "\r\n";
 	                out.write(ack.getBytes("UTF-8"));
 	                out.flush();
 	                System.out.println("Sent ACK to master.");
 
-	                bulkBuffer.clear();  // 💥 Flush any buffered junk
+	                bulkBuffer.clear();
 	                continue;
 	            }
 
-	            // ✅ Full RESP array: process command, clear buffer
 	            if (arr != null) {
-	                bulkBuffer.clear();  // 💥 If array is clean, flush buffer before processing
+	                bulkBuffer.clear();
 	                processCommand(cmd);
 	                continue;
 	            }
 
-	            // ✅ If bulk value is incoming, assemble manually
 	            if (val != null) {
 	                bulkBuffer.add(val);
 
@@ -209,46 +213,6 @@ public class Main {
 		}
 		return sb.toString();
 	}
-
-
-//	private static int processPropagatedCommands(byte[] data) {
-//		try {
-//			System.out.println("Processing propagated RESP commands...");
-//			RespParser parser = new RespParser(data);
-//			int lastPos = 0;
-//
-//			while (parser.hasNext()) {
-//				RespCommand cmd = parser.next();
-//				if (cmd == null)
-//					break;
-//
-//				String[] arr = cmd.getArray();
-//				String val = cmd.getValue();
-//
-//				if (arr != null) {
-//					System.out.println("Command array: " + Arrays.toString(arr));
-//					processCommand(cmd);
-//					lastPos = parser.getPos();
-//					bulkBuffer.clear();
-//				} else if (val != null) {
-//					bulkBuffer.add(val);
-//					if (bulkBuffer.size() == 3) {
-//						String[] complete = bulkBuffer.toArray(new String[0]);
-//						System.out.println("Command array (assembled): " + Arrays.toString(complete));
-//						processCommand(new RespCommand(complete));
-//						bulkBuffer.clear();
-//						lastPos = parser.getPos();
-//					}
-//				}
-//			}
-//
-//			return lastPos;
-//		} catch (Exception e) {
-//			System.err.println("Failed to process command: " + e.getMessage());
-//			bulkBuffer.clear();
-//			return 0;
-//		}
-//	}
 
 	private static void processCommand(RespCommand command) {
 		String[] elements = command.getArray();
