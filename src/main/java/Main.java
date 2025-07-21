@@ -324,7 +324,7 @@ public class Main {
         if (elements[0].equalsIgnoreCase("SET")) {
             List<String> args = new ArrayList<>(Arrays.asList(elements));
             try {
-                ClientHandler.handleSet(args, null); // null OutputStream => no reply
+                ClientHandler.handleSet(args, null, true); // null OutputStream => no reply
             } catch (IOException e) {
                 System.err.println("Error handling SET command: " + e.getMessage());
             }
