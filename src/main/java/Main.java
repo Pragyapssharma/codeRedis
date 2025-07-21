@@ -125,62 +125,70 @@ public class Main {
         }
     }
 
-    private static int processStream(byte[] data, OutputStream out) {
-        try {
-            RespParser parser = new RespParser(data);
-            int lastPos = 0;
+	private static int processStream(byte[] data, OutputStream out) {
+	    try {
+	        RespParser parser = new RespParser(data);
+	        int lastPos = 0;
 
-            while (parser.hasNext()) {
-                RespCommand cmd = parser.next();
-                lastPos = parser.getPos();
+	        while (parser.hasNext()) {
+	            RespCommand cmd = parser.next();
+	            lastPos = parser.getPos();
 
-                String[] arr = cmd.getArray();
-                String val = cmd.getValue();
+	            String[] arr = cmd.getArray();
+	            String val = cmd.getValue();
 
-                if (arr != null && arr.length == 3 &&
-                    "REPLCONF".equalsIgnoreCase(arr[0]) &&
-                    "GETACK".equalsIgnoreCase(arr[1]) &&
-                    "*".equals(arr[2])) {
+	            // ✅ ACK handling
+	            if (arr != null && arr.length == 3 &&
+	                "REPLCONF".equalsIgnoreCase(arr[0]) &&
+	                "GETACK".equalsIgnoreCase(arr[1]) &&
+	                "*".equals(arr[2])) {
 
-                    String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
-                    out.write(ack.getBytes("UTF-8"));
-                    out.flush();
-                    System.out.println("Sent ACK to master.");
-                    
-                    bulkBuffer.clear(); 
-                    
-                    continue;
-                }
+	                String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+	                out.write(ack.getBytes("UTF-8"));
+	                out.flush();
+	                System.out.println("Sent ACK to master.");
 
-                if (val != null) {
-                    bulkBuffer.add(val);
+	                bulkBuffer.clear();  // 💥 Flush any buffered junk
+	                continue;
+	            }
 
-                    if (bulkBuffer.size() == 3) {
-                        String[] complete = bulkBuffer.toArray(new String[0]);
-                        bulkBuffer.clear();
+	            // ✅ Full RESP array: process command, clear buffer
+	            if (arr != null) {
+	                bulkBuffer.clear();  // 💥 If array is clean, flush buffer before processing
+	                processCommand(cmd);
+	                continue;
+	            }
 
-                        if ("REPLCONF".equalsIgnoreCase(complete[0]) &&
-                            "GETACK".equalsIgnoreCase(complete[1]) &&
-                            "*".equals(complete[2])) {
+	            // ✅ If bulk value is incoming, assemble manually
+	            if (val != null) {
+	                bulkBuffer.add(val);
 
-                            String ackResponse = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
-                            out.write(ackResponse.getBytes("UTF-8"));
-                            out.flush();
-                            System.out.println("Sent ACK to master.");
-                        } else {
-                            processCommand(new RespCommand(complete));
-                        }
-                    }
-                }
-            }
+	                if (bulkBuffer.size() == 3) {
+	                    String[] complete = bulkBuffer.toArray(new String[0]);
+	                    bulkBuffer.clear();
 
-            return lastPos;
-        } catch (Exception e) {
-            System.err.println("Failed to process command: " + e.getMessage());
-            bulkBuffer.clear();
-            return 0;
-        }
-    }
+	                    if ("REPLCONF".equalsIgnoreCase(complete[0]) &&
+	                        "GETACK".equalsIgnoreCase(complete[1]) &&
+	                        "*".equals(complete[2])) {
+
+	                        String ackResponse = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+	                        out.write(ackResponse.getBytes("UTF-8"));
+	                        out.flush();
+	                        System.out.println("Sent ACK to master.");
+	                    } else {
+	                        processCommand(new RespCommand(complete));
+	                    }
+	                }
+	            }
+	        }
+
+	        return lastPos;
+	    } catch (Exception e) {
+	        System.err.println("Failed to process command: " + e.getMessage());
+	        bulkBuffer.clear();
+	        return 0;
+	    }
+	}
 
 
 	private static String readLine(InputStream in) throws IOException {
