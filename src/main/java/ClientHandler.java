@@ -60,6 +60,11 @@ class ClientHandler extends Thread {
                     case "PING":
                         out.write("+PONG\r\n".getBytes("UTF-8"));
                         break;
+                        
+                    case "REPLCONF":
+                        out.write("+OK\r\n".getBytes("UTF-8"));
+                        break;
+
 
                     case "ECHO":
                         if (args.size() >= 2) {
