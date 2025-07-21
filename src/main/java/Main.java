@@ -8,7 +8,7 @@ public class Main {
     public static void main(String[] args) {
         String masterHost = null;
         int masterPort = 0;
-        int port = 6380;
+        int port = 6379;
 
         // Parse CLI flags or config (simplified here)
         for (int i = 0; i < args.length - 1; i++) {
