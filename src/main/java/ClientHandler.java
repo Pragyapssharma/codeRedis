@@ -112,9 +112,11 @@ class ClientHandler extends Thread {
                         
                     case "INFO":
                         if (args.size() == 2 && "replication".equalsIgnoreCase(args.get(1))) {
-                            String replid = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"; // or generate + store it in Config
+                            String role = Config.isReplica() ? "slave" : "master";
+                            String replid = Config.masterReplId != null ? Config.masterReplId
+                                            : "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
                             String info = "# Replication\r\n" +
-                                          "role:master\r\n" +
+                                          "role:" + role + "\r\n" +
                                           "master_replid:" + replid + "\r\n" +
                                           "master_repl_offset:0\r\n";
                             String resp = "$" + info.length() + "\r\n" + info + "\r\n";
