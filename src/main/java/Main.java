@@ -68,25 +68,30 @@ public class Main {
     }
 
     private static void connectToMaster(String masterHost, int masterPort) {
-        try (Socket masterSocket = new Socket(masterHost, masterPort)) {
+        try {
+        	Socket masterSocket = new Socket(masterHost, masterPort);
             InputStream in = masterSocket.getInputStream();
             OutputStream out = masterSocket.getOutputStream();
 
             // Handshake sequence
             send(out, "*1\r\n$4\r\nPING\r\n");
             System.out.println("Sent PING to master");
+            System.out.println("Received from master: " + readLine(in));
             readLine(in);
 
             String portStr = Integer.toString(Config.getPort());
             String replconfPort = String.format("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
                     portStr.length(), portStr);
             send(out, replconfPort);
+            System.out.println("Received from master: " + readLine(in));
             readLine(in);
 
             send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
+            System.out.println("Received from master: " + readLine(in));
             readLine(in);
 
             send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
+            System.out.println("Received: " + readLine(in));
             readLine(in); // FULLRESYNC
 
             // Read RDB bulk string (skip it if present)
@@ -94,8 +99,7 @@ public class Main {
             if (rdbHeader.startsWith("$")) {
                 int rdbLength = Integer.parseInt(rdbHeader.substring(1));
                 byte[] rdbBytes = in.readNBytes(rdbLength);
-                in.read(); // skip \r
-                in.read(); // skip \n
+                String trailer = readLine(in);
                 System.out.println("Read " + rdbLength + " RDB bytes from master.");
             }
 
