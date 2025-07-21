@@ -29,6 +29,7 @@ class RespParser {
         byte type = data[pos];
         pos++;
         
+        System.out.println("Type of data "+type);
 
         switch (type) {
         	case '+': // Simple string (e.g., response like PONG from a PING command)
@@ -87,6 +88,7 @@ class RespParser {
 //        String value = new String(data, pos, length);
         String value = new String(data, pos, length, StandardCharsets.UTF_8);
         pos += length;
+        System.out.println("debug - bulk :"+value);
         if (data[pos] != '\r' || data[pos + 1] != '\n') {
             throw new IOException("Bulk string not terminated correctly");
         }
