@@ -127,17 +127,9 @@ public class Main {
 								bulkBuffer.add(val);
 
 								if (bulkBuffer.size() == 3) {
-									String[] assembled = bulkBuffer.toArray(new String[0]);
-									bulkBuffer.clear();
-
-									if ("REPLCONF".equalsIgnoreCase(assembled[0])
-											&& "GETACK".equalsIgnoreCase(assembled[1]) && "*".equals(assembled[2])) {
-
-										String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
-										out.write(ack.getBytes("UTF-8"));
-										out.flush();
-										System.out.println("Sent ACK to master.");
-									}
+									String[] complete = bulkBuffer.toArray(new String[0]);
+								    processCommand(new RespCommand(complete));
+								    bulkBuffer.clear();
 								}
 							} else if (arr != null) {
 								if (arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0])
