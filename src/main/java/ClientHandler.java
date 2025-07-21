@@ -73,8 +73,9 @@ class ClientHandler extends Thread {
 //                        }
 //                        continue;
 //                    }
-                    if (isReplicaConnection && (command.equals("SET") || command.equals("PING") || command.equals("ECHO"))) {
+//                    if (isReplicaConnection && (command.equals("SET") || command.equals("PING") || command.equals("ECHO"))) {
                         // Only swallow known replication commands; let other commands go through
+                    if (Config.isReplica && isReplicaConnection) {
                         switch (command) {
                             case "SET":
                                 handleSet(args, null, true);
@@ -229,27 +230,27 @@ class ClientHandler extends Thread {
         }
         
      // Propagate to all replicas
-      if (out != null) {
-        StringBuilder command = new StringBuilder();
-        command.append("*3\r\n");
-        command.append("$3\r\nSET\r\n");
-        command.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
-        command.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
-
-        byte[] commandBytes = command.toString().getBytes();
-
-        for (OutputStream replicaOut : replicaOutputs) {
-            if (replicaOut != out) {
-            	try {
-                    replicaOut.write(commandBytes); // Propagate the SET command to each replica
-                    replicaOut.flush();
-                } catch (IOException e) {
-                    System.out.println("Replica write failed, removing: " + e.getMessage());
-                    replicaOutputs.remove(replicaOut);  // Handle replica disconnection
-                }
-            }
-        }
-      }
+//      if (out != null) {
+//        StringBuilder command = new StringBuilder();
+//        command.append("*3\r\n");
+//        command.append("$3\r\nSET\r\n");
+//        command.append("$").append(key.length()).append("\r\n").append(key).append("\r\n");
+//        command.append("$").append(value.length()).append("\r\n").append(value).append("\r\n");
+//
+//        byte[] commandBytes = command.toString().getBytes();
+//
+//        for (OutputStream replicaOut : replicaOutputs) {
+//            if (replicaOut != out) {
+//            	try {
+//                    replicaOut.write(commandBytes); // Propagate the SET command to each replica
+//                    replicaOut.flush();
+//                } catch (IOException e) {
+//                    System.out.println("Replica write failed, removing: " + e.getMessage());
+//                    replicaOutputs.remove(replicaOut);  // Handle replica disconnection
+//                }
+//            }
+//        }
+//      }
     }
     
     private void handleGet(List<String> args, OutputStream out) throws IOException {
