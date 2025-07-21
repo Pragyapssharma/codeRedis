@@ -33,6 +33,11 @@ class ClientHandler extends Thread {
         this.clientSocket = clientSocket;
     }
     
+    public static void addReplicaStream(OutputStream out) {
+        replicaOutputs.add(out);
+        System.out.println("Replica added. Total replicas: " + replicaOutputs.size());
+    }
+    
     public static void putKeyWithExpiry(String key, String value, long expirationUnixMs) {
         keyValueStore.put(key, new KeyValue(value, expirationUnixMs));
     }
@@ -81,6 +86,28 @@ class ClientHandler extends Thread {
 
                     case "GET":
                         handleGet(args, out);
+                        break;
+                        
+                    case "PSYNC":
+                        if (args.size() >= 3) {
+                            // Respond with FULLRESYNC replid offset
+                            String replid = Config.masterReplId != null ? Config.masterReplId : "75cd7bc10c49047e0d163660f3b90625b1af31dc";
+                            String response = "+FULLRESYNC " + replid + " 0\r\n";
+                            out.write(response.getBytes("UTF-8"));
+
+                            // Send dummy RDB file as bulk string
+                            byte[] rdb = ClientHandler.EMPTY_RDB_FILE; // you already have this constant
+                            String header = "$" + rdb.length + "\r\n";
+                            out.write(header.getBytes("UTF-8"));
+                            out.write(rdb);
+                            out.write("\r\n".getBytes("UTF-8"));
+
+                            // Add replica stream to your replica list for future propagation if needed
+                            ClientHandler.addReplicaStream(out); // if you're tracking replicas
+
+                        } else {
+                            out.write("-ERR wrong number of arguments for PSYNC\r\n".getBytes("UTF-8"));
+                        }
                         break;
 
                     default:
@@ -304,6 +331,18 @@ class ClientHandler extends Thread {
         
         if (!suppressPropagation) {
             ReplicationHandler.propagateSetToReplicas(key, value);
+        }
+    }
+    
+    public static void propagateSetToReplicas(String key, String value) {
+        String command = "*3\r\n$3\r\nSET\r\n$" + key.length() + "\r\n" + key + "\r\n$" + value.length() + "\r\n" + value + "\r\n";
+        for (OutputStream out : replicaOutputs) {
+            try {
+                out.write(command.getBytes("UTF-8"));
+                out.flush();
+            } catch (IOException e) {
+                System.err.println("Failed to propagate to replica: " + e.getMessage());
+            }
         }
     }
     
