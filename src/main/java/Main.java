@@ -4,6 +4,7 @@ import java.util.*;
 
 public class Main {
 	private static ServerSocket serverSocket;
+	private static List<String> bulkBuffer = new ArrayList<>();
 
 	public static void main(String[] args) {
 		String masterHost = null;
@@ -72,94 +73,102 @@ public class Main {
 	}
 
 	private static void connectToMaster(String masterHost, int masterPort) {
-		try {
-			Socket masterSocket = new Socket(masterHost, masterPort);
-			InputStream in = masterSocket.getInputStream();
-			OutputStream out = masterSocket.getOutputStream();
+        try {
+            Socket masterSocket = new Socket(masterHost, masterPort);
+            InputStream in = masterSocket.getInputStream();
+            OutputStream out = masterSocket.getOutputStream();
 
-			// Handshake sequence
-			send(out, "*1\r\n$4\r\nPING\r\n");
-			System.out.println("Sent PING to master");
-			System.out.println("Received from master: " + readLine(in));
+            send(out, "*1\r\n$4\r\nPING\r\n");
+            System.out.println("Sent PING to master");
+            System.out.println("Received from master: " + readLine(in));
 
-			String portStr = Integer.toString(Config.getPort());
-			String replconfPort = String.format("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
-					portStr.length(), portStr);
-			send(out, replconfPort);
-			String replconfResp1 = readLine(in);
-			System.out.println("Received from master: " + replconfResp1);
+            String portStr = Integer.toString(Config.getPort());
+            send(out, "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" + portStr.length() + "\r\n" + portStr + "\r\n");
+            System.out.println("Received from master: " + readLine(in));
 
-			send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
-			String replconfResp2 = readLine(in);
-			System.out.println("Received from master: " + replconfResp2);
+            send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
+            System.out.println("Received from master: " + readLine(in));
 
-			send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
-			System.out.println("Received: " + readLine(in));
-			readLine(in); // FULLRESYNC
+            send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
+            System.out.println("Received: " + readLine(in));
+            readLine(in); // FULLRESYNC
 
-			// Read RDB bulk string (skip it if present)
-			String rdbHeader = readLine(in);
-			if (rdbHeader.startsWith("$")) {
-				int rdbLength = Integer.parseInt(rdbHeader.substring(1));
-				System.out.println("Read " + rdbLength + " RDB bytes from master.");
-			}
+            String rdbHeader = readLine(in);
+            if (rdbHeader.startsWith("$")) {
+                int rdbLength = Integer.parseInt(rdbHeader.substring(1));
+                in.read(new byte[rdbLength]); // skip bytes
+                readLine(in); // trailing CRLF
+                System.out.println("Read " + rdbLength + " RDB bytes from master.");
+            }
 
-			// Read streaming propagated commands
-			new Thread(() -> {
-				try {
-					ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-					byte[] tmp = new byte[1024];
-					int read;
-					while ((read = in.read(tmp)) != -1) {
-						buffer.write(tmp, 0, read);
-						byte[] data = buffer.toByteArray();
-						RespParser parser = new RespParser(data);
-						int lastPos = 0;
+            new Thread(() -> {
+                try {
+                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                    byte[] tmp = new byte[1024];
+                    int read;
+                    while ((read = in.read(tmp)) != -1) {
+                        buffer.write(tmp, 0, read);
+                        byte[] data = buffer.toByteArray();
+                        int processed = processStream(data, out);
+                        if (processed > 0 && processed <= data.length) {
+                            buffer.reset();
+                            buffer.write(data, processed, data.length - processed);
+                        }
+                    }
+                } catch (IOException e) {
+                    System.err.println("Replication stream error: " + e.getMessage());
+                }
+            }).start();
 
-						while (parser.hasNext()) {
-							RespCommand cmd = parser.next();
-							String[] arr = cmd.getArray();
-							String val = cmd.getValue();
-							lastPos = parser.getPos();
+        } catch (IOException e) {
+            System.err.println("Failed to connect to master: " + e.getMessage());
+        }
+    }
 
-							if (arr == null && val != null) {
+    private static int processStream(byte[] data, OutputStream out) {
+        try {
+            RespParser parser = new RespParser(data);
+            int lastPos = 0;
 
-								bulkBuffer.add(val);
+            while (parser.hasNext()) {
+                RespCommand cmd = parser.next();
+                lastPos = parser.getPos();
 
-								if (bulkBuffer.size() == 3) {
-									String[] complete = bulkBuffer.toArray(new String[0]);
-								    processCommand(new RespCommand(complete));
-								    bulkBuffer.clear();
-								}
-							} else if (arr != null) {
-								if (arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0])
-										&& "GETACK".equalsIgnoreCase(arr[1]) && "*".equals(arr[2])) {
+                String[] arr = cmd.getArray();
+                String val = cmd.getValue();
 
-									String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
-									out.write(ack.getBytes("UTF-8"));
-									out.flush();
-									System.out.println("Sent ACK to master.");
+                if (arr != null && arr.length == 3 &&
+                    "REPLCONF".equalsIgnoreCase(arr[0]) &&
+                    "GETACK".equalsIgnoreCase(arr[1]) &&
+                    "*".equals(arr[2])) {
 
-								} else {
-									processCommand(cmd);
-								}
-							}
-						}
+                    String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+                    out.write(ack.getBytes("UTF-8"));
+                    out.flush();
+                    System.out.println("Sent ACK to master.");
+                    continue;
+                }
 
-						if (lastPos > 0 && lastPos <= data.length) {
-							buffer.reset();
-							buffer.write(data, lastPos, data.length - lastPos);
-						}
-					}
-				} catch (IOException e) {
-					System.err.println("Replication stream error: " + e.getMessage());
-				}
-			}).start();
+                if (arr != null) {
+                    processCommand(cmd);
+                    bulkBuffer.clear();
+                } else if (val != null) {
+                    bulkBuffer.add(val);
+                    if (bulkBuffer.size() == 3) {
+                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
+                        bulkBuffer.clear();
+                    }
+                }
+            }
 
-		} catch (IOException e) {
-			System.err.println("Failed to connect to master: " + e.getMessage());
-		}
-	}
+            return lastPos;
+        } catch (Exception e) {
+            System.err.println("Failed to process command: " + e.getMessage());
+            bulkBuffer.clear();
+            return 0;
+        }
+    }
+
 
 	private static String readLine(InputStream in) throws IOException {
 		StringBuilder sb = new StringBuilder();
@@ -180,46 +189,45 @@ public class Main {
 		return sb.toString();
 	}
 
-	private static List<String> bulkBuffer = new ArrayList<>();
 
-	private static int processPropagatedCommands(byte[] data) {
-		try {
-			System.out.println("Processing propagated RESP commands...");
-			RespParser parser = new RespParser(data);
-			int lastPos = 0;
-
-			while (parser.hasNext()) {
-				RespCommand cmd = parser.next();
-				if (cmd == null)
-					break;
-
-				String[] arr = cmd.getArray();
-				String val = cmd.getValue();
-
-				if (arr != null) {
-					System.out.println("Command array: " + Arrays.toString(arr));
-					processCommand(cmd);
-					lastPos = parser.getPos();
-					bulkBuffer.clear();
-				} else if (val != null) {
-					bulkBuffer.add(val);
-					if (bulkBuffer.size() == 3) {
-						String[] complete = bulkBuffer.toArray(new String[0]);
-						System.out.println("Command array (assembled): " + Arrays.toString(complete));
-						processCommand(new RespCommand(complete));
-						bulkBuffer.clear();
-						lastPos = parser.getPos();
-					}
-				}
-			}
-
-			return lastPos;
-		} catch (Exception e) {
-			System.err.println("Failed to process command: " + e.getMessage());
-			bulkBuffer.clear();
-			return 0;
-		}
-	}
+//	private static int processPropagatedCommands(byte[] data) {
+//		try {
+//			System.out.println("Processing propagated RESP commands...");
+//			RespParser parser = new RespParser(data);
+//			int lastPos = 0;
+//
+//			while (parser.hasNext()) {
+//				RespCommand cmd = parser.next();
+//				if (cmd == null)
+//					break;
+//
+//				String[] arr = cmd.getArray();
+//				String val = cmd.getValue();
+//
+//				if (arr != null) {
+//					System.out.println("Command array: " + Arrays.toString(arr));
+//					processCommand(cmd);
+//					lastPos = parser.getPos();
+//					bulkBuffer.clear();
+//				} else if (val != null) {
+//					bulkBuffer.add(val);
+//					if (bulkBuffer.size() == 3) {
+//						String[] complete = bulkBuffer.toArray(new String[0]);
+//						System.out.println("Command array (assembled): " + Arrays.toString(complete));
+//						processCommand(new RespCommand(complete));
+//						bulkBuffer.clear();
+//						lastPos = parser.getPos();
+//					}
+//				}
+//			}
+//
+//			return lastPos;
+//		} catch (Exception e) {
+//			System.err.println("Failed to process command: " + e.getMessage());
+//			bulkBuffer.clear();
+//			return 0;
+//		}
+//	}
 
 	private static void processCommand(RespCommand command) {
 		String[] elements = command.getArray();
