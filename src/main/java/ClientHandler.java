@@ -145,6 +145,22 @@ class ClientHandler extends Thread {
                             out.write("-ERR unsupported KEYS usage\r\n".getBytes("UTF-8"));
                         }
                         break;
+                        
+                    case "CONFIG":
+                        if (args.size() == 3 && "GET".equalsIgnoreCase(args.get(1)) && "dir".equalsIgnoreCase(args.get(2))) {
+                            String dir = Config.dir != null ? Config.dir : "";
+                            StringBuilder resp = new StringBuilder();
+                            resp.append("*2\r\n");
+                            resp.append("$3\r\n");      // "dir"
+                            resp.append("dir\r\n");
+                            resp.append("$").append(dir.length()).append("\r\n");
+                            resp.append(dir).append("\r\n");
+
+                            out.write(resp.toString().getBytes("UTF-8"));
+                        } else {
+                            out.write("-ERR unknown CONFIG command\r\n".getBytes("UTF-8"));
+                        }
+                        break;
 
                     default:
                         out.write("-ERR unknown command\r\n".getBytes("UTF-8"));
