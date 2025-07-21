@@ -12,7 +12,11 @@ public class Main {
 
         // Parse CLI flags or config (simplified here)
         for (int i = 0; i < args.length - 1; i++) {
-            if (args[i].equals("--port")) {
+        	if (args[i].equals("--dir")) {
+                Config.dir = args[i + 1];
+            } else if (args[i].equals("--dbfilename")) {
+                Config.dbFilename = args[i + 1];
+            } else if (args[i].equals("--port")) {
                 port = Integer.parseInt(args[i + 1]);
                 Config.setPort(port);
             } else if (args[i].equals("--replicaof")) {
