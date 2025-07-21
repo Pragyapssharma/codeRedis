@@ -76,7 +76,7 @@ class ClientHandler extends Thread {
                         // Only swallow known replication commands; let other commands go through
                         switch (command) {
                             case "SET":
-                                handleSet(args, null);
+                                handleSet(args, null, true);
                                 break;
                             case "PING":
                                 out.write("+PONG\r\n".getBytes());
@@ -133,7 +133,7 @@ class ClientHandler extends Thread {
                             break;
 
                         case "SET":
-                            handleSet(args, out);
+                            handleSet(args, out, false);
                             break;
 
                         case "GET":
@@ -193,7 +193,7 @@ class ClientHandler extends Thread {
         return args;
     }
 
-    public static void handleSet(List<String> args, OutputStream out) throws IOException {
+    public static void handleSet(List<String> args, OutputStream out, boolean suppressPropagation) throws IOException {
         if (args.size() < 3) {
         	if (out != null) {
             out.write(("-ERR wrong number of arguments for 'SET'\r\n").getBytes());
@@ -221,6 +221,10 @@ class ClientHandler extends Thread {
 
         if (out != null) {
             out.write("+OK\r\n".getBytes());
+        }
+        
+        if (!suppressPropagation) {
+            ReplicationHandler.propagateSetToReplicas(key, value);
         }
         
      // Propagate to all replicas
@@ -572,7 +576,7 @@ class ClientHandler extends Thread {
                                 String command = parts[0].toUpperCase();
 
                                 if ("SET".equals(command)) {
-                                    ClientHandler.handleSet(List.of(parts), null); // silent replication
+                                    ClientHandler.handleSet(List.of(parts), null, true); // silent replication
                                 } else {
                                     System.out.println("Unhandled replication command: " + command);
                                 }
