@@ -129,8 +129,9 @@ public class Main {
                                 "GETACK".equalsIgnoreCase(arr[1]) &&
                                 "*".equals(arr[2])) {
 
-                            	String ack = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
-                                out.write(ack.getBytes("UTF-8"));
+                            	// Construct RESP ACK response
+                                String ackResponse = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+                                out.write(ackResponse.getBytes("UTF-8"));
                                 out.flush();
                             } else {
                                 processCommand(cmd);
