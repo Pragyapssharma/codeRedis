@@ -284,8 +284,12 @@ public class Main {
                 cmd = parser.next();
             } catch (IOException e) {
                 // not enough data or unknown type
+                break; // Gracefully wait for more data
+            }catch (Exception e) {
+                System.err.println("Parsing error: " + e.getMessage());
                 break;
             }
+
             if (cmd == null) {
                 break;
             }

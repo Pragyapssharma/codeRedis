@@ -1,5 +1,6 @@
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 class RespParser {
@@ -83,7 +84,8 @@ class RespParser {
         if (pos + length + 2 > data.length) {
             throw new IOException("Invalid or incomplete bulk string");
         }
-        String value = new String(data, pos, length);
+//        String value = new String(data, pos, length);
+        String value = new String(data, pos, length, StandardCharsets.UTF_8);
         pos += length;
         if (data[pos] != '\r' || data[pos + 1] != '\n') {
             throw new IOException("Bulk string not terminated correctly");
