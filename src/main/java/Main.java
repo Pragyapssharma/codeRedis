@@ -147,17 +147,30 @@ public class Main {
     }
 
     private static int processPropagatedCommands(byte[] data) {
+        if (data.length == 0) return 0;
+
+        // ✅ Only start parsing if array marker exists
+        if (data[0] != '*') {
+            System.out.println("Skipping non-array RESP chunk...");
+            return 0; // Wait for a proper RESP array
+        }
+
         try {
-        	System.out.println("Processing propagated RESP commands...");
             RespParser parser = new RespParser(data);
             int lastPos = 0;
+
             while (parser.hasNext()) {
                 RespCommand cmd = parser.next();
-                if (cmd == null) break;
-                processCommand(cmd);
-                lastPos = parser.getPos();
+                if (cmd == null || cmd.getArray() == null) {
+                    System.out.println("Command array: null");
+                    break;
+                }
+
                 System.out.println("Command array: " + Arrays.toString(cmd.getArray()));
+                processCommand(cmd); // Applies SET silently
+                lastPos = parser.getPos();
             }
+
             return lastPos;
         } catch (Exception e) {
             System.err.println("Failed to process command: " + e.getMessage());
