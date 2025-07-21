@@ -27,7 +27,7 @@ class ClientHandler extends Thread {
     	    (byte) 0x00, (byte) 0x00  // padding (some implementations expect 18 bytes total)
     	};
 
-    private boolean isReplicaConnection = false;
+//    private boolean isReplicaConnection = false;
 
     public ClientHandler(Socket clientSocket) {
         this.clientSocket = clientSocket;
@@ -537,133 +537,133 @@ class ClientHandler extends Thread {
         }
     }
 
-
-    private void processMasterHandshake(BufferedReader in, OutputStream out) throws IOException {
-    	
-    	// Send PING
-        String ping = "*1\r\n$4\r\nPING\r\n";
-        out.write(ping.getBytes());
-
-        // Wait for +PONG
-        String line = in.readLine();
-        if (line != null && line.startsWith("+PONG")) {
-            System.out.println("Received PONG from master");
-        }
-    	
-        // Send REPLCONF listening-port
-        String replconfPort = "*3\r\n" +
-                              "$8\r\nREPLCONF\r\n" +
-                              "$14\r\nlistening-port\r\n" +
-                              "$" + String.valueOf(Config.port).length() + "\r\n" +
-                              Config.port + "\r\n";
-        out.write(replconfPort.getBytes());
-        
-     // Wait for +OK
-        line = in.readLine();
-        if (line != null && line.startsWith("+OK")) {
-            System.out.println("Received OK for REPLCONF listening-port");
-        }
-
-        // Send REPLCONF capa psync2
-        String replconfCapa = "*3\r\n" +
-                              "$8\r\nREPLCONF\r\n" +
-                              "$4\r\ncapa\r\n" +
-                              "$6\r\npsync2\r\n";
-        out.write(replconfCapa.getBytes());
-        
-     // Wait for +OK
-        line = in.readLine();
-        if (line != null && line.startsWith("+OK")) {
-            System.out.println("Received OK for REPLCONF capa psync2");
-        }
-
-        // Send PSYNC ? -1
-        String psync = "*3\r\n" +
-                       "$5\r\nPSYNC\r\n" +
-                       "$1\r\n?\r\n" +
-                       "$2\r\n-1\r\n";
-        out.write(psync.getBytes());
-
-        out.flush();
-
-     // Wait for +FULLRESYNC
-        line = in.readLine();
-        if (line != null && line.startsWith("+FULLRESYNC")) {
-            System.out.println("Received FULLRESYNC: " + line);
-        }
-
-     // Expect RDB bulk string: $<length>
-        line = in.readLine();
-        if (line != null && line.startsWith("$")) {
-            int rdbLength = Integer.parseInt(line.substring(1));
-            byte[] rdbBuffer = new byte[rdbLength];
-            InputStream inputStream = clientSocket.getInputStream();
-            int totalRead = 0;
-            while (totalRead < rdbLength) {
-                int read = inputStream.read(rdbBuffer, totalRead, rdbLength - totalRead);
-                if (read == -1) break;
-                totalRead += read;
-            }
-            inputStream.read();
-            inputStream.read();
-            System.out.println("Read " + totalRead + " RDB bytes from master.");
-            
-            new Thread(() -> {
-                try {
-                	InputStream masterIn = clientSocket.getInputStream();
-                    byte[] buffer = new byte[8192];
-                    List<Byte> commandBuffer = new ArrayList<>();
-
-                    int bytesRead;
-                    while ((bytesRead = masterIn.read(buffer)) != -1) {
-                        for (int i = 0; i < bytesRead; i++) {
-                            commandBuffer.add(buffer[i]);
-                        }
-
-                        byte[] commandBytes = new byte[commandBuffer.size()];
-                        for (int i = 0; i < commandBuffer.size(); i++) {
-                            commandBytes[i] = commandBuffer.get(i);
-                        }
-
-                        try {
-                            RespParser parser = new RespParser(commandBytes);
-                            int lastPos = 0;
-
-                            while (parser.hasNext()) {
-                            	int before = parser.getPos();
-                                RespCommand cmd = parser.next();
-                                if (cmd == null) break;
-                                String[] parts = cmd.getArray();
-                               if (parts != null && parts.length > 0) {
-                                String command = parts[0].toUpperCase();
-
-                                if ("SET".equals(command)) {
-                                    ClientHandler.handleSet(List.of(parts), null, true); // silent replication
-                                } else {
-                                    System.out.println("Unhandled replication command: " + command);
-                                }
-                            }
-                                lastPos = parser.getPos();
-                            }
-
-                         // Keep leftover bytes
-                            byte[] leftover = Arrays.copyOfRange(commandBytes, lastPos, commandBytes.length);
-                            commandBuffer.clear();
-                            for (byte b : leftover) {
-                                commandBuffer.add(b);
-                            }
-
-                        } catch (Exception e) {
-                            System.out.println("Partial replication command, waiting: " + e.getMessage());
-                        }
-                    }
-                } catch (IOException e) {
-                    System.out.println("Replication stream error: " + e.getMessage());
-                }
-            }).start();
-            
-        }
-        }
+//
+//    private void processMasterHandshake(BufferedReader in, OutputStream out) throws IOException {
+//    	
+//    	// Send PING
+//        String ping = "*1\r\n$4\r\nPING\r\n";
+//        out.write(ping.getBytes());
+//
+//        // Wait for +PONG
+//        String line = in.readLine();
+//        if (line != null && line.startsWith("+PONG")) {
+//            System.out.println("Received PONG from master");
+//        }
+//    	
+//        // Send REPLCONF listening-port
+//        String replconfPort = "*3\r\n" +
+//                              "$8\r\nREPLCONF\r\n" +
+//                              "$14\r\nlistening-port\r\n" +
+//                              "$" + String.valueOf(Config.port).length() + "\r\n" +
+//                              Config.port + "\r\n";
+//        out.write(replconfPort.getBytes());
+//        
+//     // Wait for +OK
+//        line = in.readLine();
+//        if (line != null && line.startsWith("+OK")) {
+//            System.out.println("Received OK for REPLCONF listening-port");
+//        }
+//
+//        // Send REPLCONF capa psync2
+//        String replconfCapa = "*3\r\n" +
+//                              "$8\r\nREPLCONF\r\n" +
+//                              "$4\r\ncapa\r\n" +
+//                              "$6\r\npsync2\r\n";
+//        out.write(replconfCapa.getBytes());
+//        
+//     // Wait for +OK
+//        line = in.readLine();
+//        if (line != null && line.startsWith("+OK")) {
+//            System.out.println("Received OK for REPLCONF capa psync2");
+//        }
+//
+//        // Send PSYNC ? -1
+//        String psync = "*3\r\n" +
+//                       "$5\r\nPSYNC\r\n" +
+//                       "$1\r\n?\r\n" +
+//                       "$2\r\n-1\r\n";
+//        out.write(psync.getBytes());
+//
+//        out.flush();
+//
+//     // Wait for +FULLRESYNC
+//        line = in.readLine();
+//        if (line != null && line.startsWith("+FULLRESYNC")) {
+//            System.out.println("Received FULLRESYNC: " + line);
+//        }
+//
+//     // Expect RDB bulk string: $<length>
+//        line = in.readLine();
+//        if (line != null && line.startsWith("$")) {
+//            int rdbLength = Integer.parseInt(line.substring(1));
+//            byte[] rdbBuffer = new byte[rdbLength];
+//            InputStream inputStream = clientSocket.getInputStream();
+//            int totalRead = 0;
+//            while (totalRead < rdbLength) {
+//                int read = inputStream.read(rdbBuffer, totalRead, rdbLength - totalRead);
+//                if (read == -1) break;
+//                totalRead += read;
+//            }
+//            inputStream.read();
+//            inputStream.read();
+//            System.out.println("Read " + totalRead + " RDB bytes from master.");
+//            
+//            new Thread(() -> {
+//                try {
+//                	InputStream masterIn = clientSocket.getInputStream();
+//                    byte[] buffer = new byte[8192];
+//                    List<Byte> commandBuffer = new ArrayList<>();
+//
+//                    int bytesRead;
+//                    while ((bytesRead = masterIn.read(buffer)) != -1) {
+//                        for (int i = 0; i < bytesRead; i++) {
+//                            commandBuffer.add(buffer[i]);
+//                        }
+//
+//                        byte[] commandBytes = new byte[commandBuffer.size()];
+//                        for (int i = 0; i < commandBuffer.size(); i++) {
+//                            commandBytes[i] = commandBuffer.get(i);
+//                        }
+//
+//                        try {
+//                            RespParser parser = new RespParser(commandBytes);
+//                            int lastPos = 0;
+//
+//                            while (parser.hasNext()) {
+//                            	int before = parser.getPos();
+//                                RespCommand cmd = parser.next();
+//                                if (cmd == null) break;
+//                                String[] parts = cmd.getArray();
+//                               if (parts != null && parts.length > 0) {
+//                                String command = parts[0].toUpperCase();
+//
+//                                if ("SET".equals(command)) {
+//                                    ClientHandler.handleSet(List.of(parts), null, true); // silent replication
+//                                } else {
+//                                    System.out.println("Unhandled replication command: " + command);
+//                                }
+//                            }
+//                                lastPos = parser.getPos();
+//                            }
+//
+//                         // Keep leftover bytes
+//                            byte[] leftover = Arrays.copyOfRange(commandBytes, lastPos, commandBytes.length);
+//                            commandBuffer.clear();
+//                            for (byte b : leftover) {
+//                                commandBuffer.add(b);
+//                            }
+//
+//                        } catch (Exception e) {
+//                            System.out.println("Partial replication command, waiting: " + e.getMessage());
+//                        }
+//                    }
+//                } catch (IOException e) {
+//                    System.out.println("Replication stream error: " + e.getMessage());
+//                }
+//            }).start();
+//            
+//        }
+//        }
 
 
         

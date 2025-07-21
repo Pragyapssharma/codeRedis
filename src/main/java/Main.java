@@ -1,112 +1,40 @@
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.io.*;
+import java.net.*;
+import java.util.*;
 
 public class Main {
-    public static void main(String[] args) {
-        System.out.println("Logs from your program will appear here!");
+    private static ServerSocket serverSocket;
 
-        // Initialize variables
-        ServerSocket serverSocket = null;
-        int port = 6379;
+    public static void main(String[] args) {
         String masterHost = null;
         int masterPort = 0;
-        
-     // Parse command-line arguments
-        for (int i = 0; i < args.length; i++) {
-            switch (args[i]) 
-            {
-                case "--dir":
-                	if (i + 1 < args.length) {
-                        Config.dir = args[i + 1];
-                        i++;
-                    } else {
-                        System.err.println("Missing value for --dir");
-                        return;
-                    }
-                    break;
-                    
-                case "--dbfilename":
-                	if (i + 1 < args.length) {
-                        Config.dbFilename = args[i + 1];
-                        i++;
-                    } else {
-                        System.err.println("Missing value for --dbfilename");
-                        return;
-                    }
-                    break;
-                    
-                case "--port":
-                	if (i + 1 < args.length) {
-                        try {
-                            port = Integer.parseInt(args[i + 1]);
-                            Config.port = port;
-                            i++;
-                        } catch (NumberFormatException e) {
-                            System.err.println("Invalid port number: " + args[i + 1]);
-                            return;
-                        }
-                    } else {
-                        System.err.println("Missing value for --port");
-                        return;
-                    }
-                    break;
-                    
-                case "--replicaof":
-                	if (i + 1 < args.length) {
-                        Config.isReplica = true;
-                        String[] parts = args[i + 1].split(" ");
-                        if (parts.length == 2) {
-                            masterHost = parts[0];
-                            try {
-                                masterPort = Integer.parseInt(parts[1]);
-                            } catch (NumberFormatException e) {
-                                System.err.println("Invalid replica port number: " + parts[1]);
-                                return;
-                            }
-                            i++;
-                        } else {
-                            System.err.println("Usage: --replicaof <host> <port>");
-                            return;
-                        }
-                    } else {
-                        System.err.println("Usage: --replicaof <host> <port>");
-                        return;
-                    }
-                    break;   
-                    
-                default:
-                    break;
+        int port = 6380;
+
+        // Parse CLI flags or config (simplified here)
+        for (int i = 0; i < args.length - 1; i++) {
+            if (args[i].equals("--port")) {
+                port = Integer.parseInt(args[i + 1]);
+                Config.setPort(port);
+            } else if (args[i].equals("--replicaof")) {
+                String[] parts = args[i + 1].split(" ");
+                if (parts.length == 2) {
+                    masterHost = parts[0];
+                    masterPort = Integer.parseInt(parts[1]);
+                    Config.setReplica(true);
+                }
             }
         }
 
-        // Show parsed config (for debug/logging purposes)
-        System.out.println("Configured dir: " + Config.dir);
-        System.out.println("Configured dbfilename: " + Config.dbFilename);
-        System.out.println("Configured port: " + Config.port);
-        System.out.println("Replica mode: " + Config.isReplica);
-        
-        
-        
+        // Load RDB file if configured
         if (!Config.dir.isEmpty() && !Config.dbFilename.isEmpty()) {
             String filePath = Config.dir + "/" + Config.dbFilename;
             File rdbFile = new File(filePath);
-            if (rdbFile.exists() && rdbFile.isFile()) {
+            if (rdbFile.exists()) {
                 try (FileInputStream fis = new FileInputStream(rdbFile)) {
                     RDBParser.loadFromStream(fis);
                     System.out.println("Loaded RDB file: " + filePath);
                 } catch (IOException e) {
                     System.out.println("Failed to read RDB: " + e.getMessage());
-                    e.printStackTrace();
                 }
             } else {
                 System.out.println("No RDB file found, starting with empty DB");
@@ -114,222 +42,137 @@ public class Main {
         } else {
             System.out.println("No RDB config provided, starting with empty DB");
         }
-        
-        
-     // If replica mode, connect to master and send PING
-        if (Config.isReplica) {
-            try {
-                System.out.println("Connecting to master at " + masterHost + ":" + masterPort);
-                Socket masterSocket = new Socket(masterHost, masterPort);
-                OutputStream out = masterSocket.getOutputStream();
-                InputStream in = masterSocket.getInputStream();
 
-                // Send PING command as RESP array
-                String pingCmd = "*1\r\n$4\r\nPING\r\n";
-                out.write(pingCmd.getBytes("UTF-8"));
-                out.flush();
-
-                System.out.println("Sent PING to master");
-
-             // Read PING response (+PONG\r\n expected)
-                String pongResp = readLine(in);
-                System.out.println("Received from master: " + pongResp);
-                if (!pongResp.equals("+PONG")) {
-                    System.err.println("Unexpected response to PING: " + pongResp);
-                    masterSocket.close();
-                    return;
-                }
-
-                // Send first REPLCONF: listening-port <port>
-                String portStr = Integer.toString(port);
-                String replconfListeningPort = String.format(
-                    "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
-                    portStr.length(), portStr);
-                out.write(replconfListeningPort.getBytes("UTF-8"));
-                out.flush();
-                System.out.println("Sent REPLCONF listening-port " + portStr);
-
-                // Read response to first REPLCONF (+OK\r\n expected)
-                String replconfResp1 = readLine(in);
-                System.out.println("Received from master: " + replconfResp1);
-                if (!replconfResp1.equals("+OK")) {
-                    System.err.println("Unexpected response to REPLCONF listening-port: " + replconfResp1);
-                    masterSocket.close();
-                    return;
-                }
-
-                // Send second REPLCONF: capa psync2
-                String replconfCapa = "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n";
-                out.write(replconfCapa.getBytes("UTF-8"));
-                out.flush();
-                System.out.println("Sent REPLCONF capa psync2");
-
-                // Read response to second REPLCONF (+OK\r\n expected)
-                String replconfResp2 = readLine(in);
-                System.out.println("Received from master: " + replconfResp2);
-                if (!replconfResp2.equals("+OK")) {
-                    System.err.println("Unexpected response to REPLCONF capa: " + replconfResp2);
-                    masterSocket.close();
-                    return;
-                }
-                
-             // Send PSYNC ? -1
-                String psyncCmd = "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n";
-                out.write(psyncCmd.getBytes("UTF-8"));
-                out.flush();
-                System.out.println("Sent PSYNC ? -1");
-                String psyncResp = readLine(in);
-                System.out.println("Received: " + psyncResp);
-                
-             // Start a new thread to read propagated commands from master
-                new Thread(() -> {
-                    try {
-                        byte[] buffer = new byte[1024];
-                        int bytesRead;
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-
-                        while ((bytesRead = in.read(buffer)) != -1) {
-                            baos.write(buffer, 0, bytesRead);
-                            byte[] data = baos.toByteArray();
-                            int processed = processPropagatedCommands(data);
-//                            if (processed > 0) {
-//                                baos.reset();
-//                                baos.write(data, processed, data.length - processed);
-//                            }
-                            if (processed > 0 && processed <= data.length) {
-                                baos.reset();
-                                baos.write(data, processed, data.length - processed);
-                            } else if (processed == 0) {
-                                // Not enough data to parse a full command, wait for more
-                            } else {
-                                System.err.println("Invalid processed length: " + processed + " (data length: " + data.length + ")");
-                                baos.reset(); // Avoid repeated crashes
-                            }
-
-                        }
-                    } catch (IOException e) {
-                        System.err.println("Failed to read propagated commands: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                }).start();  
-
-            } catch (IOException e) {
-                System.err.println("Failed to connect/send PING to master: " + e.getMessage());
-                e.printStackTrace();
-                return;
-            }
+        // Start replication thread if in replica mode
+        if (Config.isReplica()) {
+            String finalMasterHost = masterHost;
+            int finalMasterPort = masterPort;
+            new Thread(() -> connectToMaster(finalMasterHost, finalMasterPort)).start();
         }
-        
-        // Start server on specified port
+
+        // Start client-facing server
         try {
-            // Set up the server socket and wait for client connections
-        	serverSocket = new ServerSocket();
-        	serverSocket.setReuseAddress(true);
-        	serverSocket.bind(new InetSocketAddress(Config.port));
+            serverSocket = new ServerSocket();
+            serverSocket.setReuseAddress(true);
+            serverSocket.bind(new InetSocketAddress(port));
             System.out.println("Server is listening on port " + port);
 
-            // Infinite loop to accept multiple clients concurrently
             while (true) {
-                // Wait for a client connection
                 Socket clientSocket = serverSocket.accept();
                 System.out.println("Client connected.");
-
-                // Spawn a new thread to handle the client
                 new ClientHandler(clientSocket).start();
             }
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
-        } finally {
-            try {
-                if (serverSocket != null) {
-                    serverSocket.close();
-                }
-            } catch (IOException e) {
-                System.out.println("IOException during cleanup: " + e.getMessage());
-            }
         }
     }
-    
-    
+
+    private static void connectToMaster(String masterHost, int masterPort) {
+        try (Socket masterSocket = new Socket(masterHost, masterPort)) {
+            InputStream in = masterSocket.getInputStream();
+            OutputStream out = masterSocket.getOutputStream();
+
+            // Handshake sequence
+            send(out, "*1\r\n$4\r\nPING\r\n");
+            System.out.println("Sent PING to master");
+            readLine(in);
+
+            String portStr = Integer.toString(Config.getPort());
+            String replconfPort = String.format("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
+                    portStr.length(), portStr);
+            send(out, replconfPort);
+            readLine(in);
+
+            send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
+            readLine(in);
+
+            send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
+            readLine(in); // FULLRESYNC
+
+            // Read RDB bulk string (skip it if present)
+            String rdbHeader = readLine(in);
+            if (rdbHeader.startsWith("$")) {
+                int rdbLength = Integer.parseInt(rdbHeader.substring(1));
+                byte[] rdbBytes = in.readNBytes(rdbLength);
+                in.read(); // skip \r
+                in.read(); // skip \n
+                System.out.println("Read " + rdbLength + " RDB bytes from master.");
+            }
+
+            // Read streaming propagated commands
+            new Thread(() -> {
+                try {
+                    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                    byte[] tmp = new byte[1024];
+                    int read;
+                    while ((read = in.read(tmp)) != -1) {
+                        buffer.write(tmp, 0, read);
+                        byte[] data = buffer.toByteArray();
+                        int processed = processPropagatedCommands(data);
+                        if (processed > 0 && processed <= data.length) {
+                            buffer.reset();
+                            buffer.write(data, processed, data.length - processed);
+                        }
+                    }
+                } catch (IOException e) {
+                    System.err.println("Replication stream error: " + e.getMessage());
+                }
+            }).start();
+
+        } catch (IOException e) {
+            System.err.println("Failed to connect to master: " + e.getMessage());
+        }
+    }
+
     private static String readLine(InputStream in) throws IOException {
         StringBuilder sb = new StringBuilder();
         int b;
-        boolean gotCR = false;
+        boolean cr = false;
         while ((b = in.read()) != -1) {
-            if (gotCR) {
-                if (b == '\n') {
-                    break; // End of line
-                } else {
-                    sb.append('\r');
-                    gotCR = false;
-                }
+            if (cr && b == '\n') break;
+            if (cr) {
+                sb.append('\r');
+                cr = false;
             }
-            if (b == '\r') {
-                gotCR = true;
-            } else {
-                sb.append((char) b);
-            }
+            if (b == '\r') cr = true;
+            else sb.append((char) b);
         }
         return sb.toString();
     }
 
-    private static int processPropagatedCommands(byte[] data) throws IOException {
-        int processed = 0;
-        RespParser parser = new RespParser(data);
-        
-        while (true) {
-            int beforePos = parser.getPos();  // implement this method
-            RespCommand cmd;
-            try {
-                cmd = parser.next();
-            } catch (IOException e) {
-                // not enough data or unknown type
-                break; // Gracefully wait for more data
-            }catch (Exception e) {
-                System.err.println("Parsing error: " + e.getMessage());
-                break;
+    private static int processPropagatedCommands(byte[] data) {
+        try {
+            RespParser parser = new RespParser(data);
+            int lastPos = 0;
+            while (parser.hasNext()) {
+                RespCommand cmd = parser.next();
+                if (cmd == null) break;
+                processCommand(cmd);
+                lastPos = parser.getPos();
             }
-
-            if (cmd == null) {
-                break;
-            }
-            processCommand(cmd);
-            processed = parser.getPos();
+            return lastPos;
+        } catch (Exception e) {
+            System.err.println("Failed to process command: " + e.getMessage());
+            return 0;
         }
-
-//        while (parser.hasNext()) {
-//            RespCommand command = parser.next();
-//            if (command != null) {
-//                processCommand(command);
-//                processed += calculateCommandLength(command.getArray());
-//            } else {
-//                break;
-//            }
-//        }
-
-        return processed;
     }
 
-    private static int calculateCommandLength(String[] array) {
-        int length = 0;
-        for (String s : array) {
-            length += s.length() + 2; // Approximate length
-        }
-        return length + 1; // For the '*' character
-    }
-    
-    // Method to process a command
     private static void processCommand(RespCommand command) {
         String[] elements = command.getArray();
-        if (elements[0].equalsIgnoreCase("SET")) {
-            List<String> args = new ArrayList<>(Arrays.asList(elements));
-            try {
-                ClientHandler.handleSet(args, null, true); // null OutputStream => no reply
-            } catch (IOException e) {
-                System.err.println("Error handling SET command: " + e.getMessage());
+        if (elements != null && elements.length > 0) {
+            String cmd = elements[0].toUpperCase();
+            if ("SET".equals(cmd)) {
+                try {
+                    ClientHandler.handleSet(Arrays.asList(elements), null, true);
+                } catch (IOException e) {
+                    System.err.println("Error applying propagated SET: " + e.getMessage());
+                }
             }
         }
-        // Add more command types as needed
     }
-    
+
+    private static void send(OutputStream out, String data) throws IOException {
+        out.write(data.getBytes("UTF-8"));
+        out.flush();
+    }
 }
