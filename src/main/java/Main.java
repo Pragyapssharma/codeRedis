@@ -148,6 +148,7 @@ public class Main {
 
     private static int processPropagatedCommands(byte[] data) {
         try {
+        	System.out.println("Processing propagated RESP commands...");
             RespParser parser = new RespParser(data);
             int lastPos = 0;
             while (parser.hasNext()) {
@@ -155,6 +156,7 @@ public class Main {
                 if (cmd == null) break;
                 processCommand(cmd);
                 lastPos = parser.getPos();
+                System.out.println("Command array: " + Arrays.toString(cmd.getArray()));
             }
             return lastPos;
         } catch (Exception e) {

@@ -287,6 +287,11 @@ class ClientHandler extends Thread {
         }
         
         System.out.println("SET applied: " + key + " -> " + value);
+        
+        System.out.println("All stored keys:");
+        for (String k : keyValueStore.keySet()) {
+            System.out.println("  " + k);
+        }
 
         if (out != null) {
             out.write("+OK\r\n".getBytes("UTF-8"));
