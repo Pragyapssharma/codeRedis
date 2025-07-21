@@ -10,7 +10,7 @@ public class Main {
         int masterPort = 0;
         int port = 6379;
 
-        // Parse CLI flags or config (simplified here)
+        // Parse CLI flags or config
         for (int i = 0; i < args.length - 1; i++) {
         	if (args[i].equals("--dir")) {
                 Config.dir = args[i + 1];
@@ -104,8 +104,8 @@ public class Main {
             String rdbHeader = readLine(in);
             if (rdbHeader.startsWith("$")) {
                 int rdbLength = Integer.parseInt(rdbHeader.substring(1));
-                byte[] rdbBytes = in.readNBytes(rdbLength);
-                String trailer = readLine(in);
+//                byte[] rdbBytes = in.readNBytes(rdbLength);
+//                String trailer = readLine(in);
                 System.out.println("Read " + rdbLength + " RDB bytes from master.");
             }
 
@@ -166,16 +166,13 @@ public class Main {
                 String val = cmd.getValue();
 
                 if (arr != null) {
-                    // ✅ Full command in array format (e.g., ["SET", "foo", "123"])
                     System.out.println("Command array: " + Arrays.toString(arr));
                     processCommand(cmd);
                     lastPos = parser.getPos();
-                    bulkBuffer.clear(); // discard any leftovers
+                    bulkBuffer.clear();
                 } else if (val != null) {
-                    // ✅ Bulk string, likely part of a command
                     bulkBuffer.add(val);
                     if (bulkBuffer.size() == 3) {
-                        // Treat it as a full command
                         String[] complete = bulkBuffer.toArray(new String[0]);
                         System.out.println("Command array (assembled): " + Arrays.toString(complete));
                         processCommand(new RespCommand(complete));
@@ -188,7 +185,7 @@ public class Main {
             return lastPos;
         } catch (Exception e) {
             System.err.println("Failed to process command: " + e.getMessage());
-            bulkBuffer.clear(); // reset on failure
+            bulkBuffer.clear();
             return 0;
         }
     }

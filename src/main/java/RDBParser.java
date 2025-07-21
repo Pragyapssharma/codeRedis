@@ -9,7 +9,6 @@ public class RDBParser {
 		long expireAtMillis = 0;
 		boolean hasExpiry = false;
 
-		// Read header: "REDIS" + version (magic 5 bytes + 4 version bytes)
 		byte[] header = new byte[9];
 		in.readFully(header);
 
@@ -19,13 +18,12 @@ public class RDBParser {
 			try {
 				b = in.readUnsignedByte();
 			} catch (IOException e) {
-				break; // End of stream
+				break;
 			}
 
 			switch (b) {
 			case 0xFD:
 				long ttlMillis64 = readUnsignedLong(in);
-			    // treat as TTL (duration) and add to current time to get absolute expiry
 			    expireAtMillis = System.currentTimeMillis() + ttlMillis64;
 				hasExpiry = true;
 				break;
@@ -92,9 +90,6 @@ public class RDBParser {
 	private static void skipUnsupportedObject(int objectType, DataInputStream in) throws IOException {
 		System.out.println("Skipping unsupported type: " + objectType);
 
-		// For now, let's assume these unsupported types encode a key and value as
-		// length-encoded strings
-		// so we try to read and discard both.
 		try {
 			readLengthEncodedString(in); // Skip key
 			readLengthEncodedString(in); // Skip value or payload
@@ -175,20 +170,5 @@ public class RDBParser {
 			throw new IOException("Invalid length prefix");
 		}
 	}
-	
-//	private static String parseBulkString(DataInputStream in) throws IOException {
-//	    long length = readLength(in);
-//	    
-//	    if (length == -1) {
-//	        return null;
-//	    }
-//
-//	    byte[] value = new byte[(int) length];
-//	    in.readFully(value);
-//
-//	    return new String(value);
-//	}
-
-
-	
+		
 }
