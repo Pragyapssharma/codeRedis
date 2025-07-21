@@ -100,7 +100,7 @@ class ClientHandler extends Thread {
                             String header = "$" + rdb.length + "\r\n";
                             out.write(header.getBytes("UTF-8"));
                             out.write(rdb);
-                            out.write("\r\n".getBytes("UTF-8"));
+//                            out.write("\r\n".getBytes("UTF-8"));
 
                             // Add replica stream to your replica list for future propagation if needed
                             ClientHandler.addReplicaStream(out); // if you're tracking replicas
