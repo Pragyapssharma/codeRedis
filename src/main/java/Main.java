@@ -83,13 +83,13 @@ public class Main {
             String replconfPort = String.format("*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$%d\r\n%s\r\n",
                     portStr.length(), portStr);
             send(out, replconfPort);
-            String replconfResp = readLine(in);
-            System.out.println("Received from master: " + replconfResp);
+            String replconfResp1 = readLine(in);
+            System.out.println("Received from master: " + replconfResp1);
             readLine(in);
 
             send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
-            String replconfResp1 = readLine(in);
-            System.out.println("Received from master: " + replconfResp1);
+            String replconfResp2 = readLine(in);
+            System.out.println("Received from master: " + replconfResp2);
             readLine(in);
 
             send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
