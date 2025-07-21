@@ -134,7 +134,7 @@ public class Main {
 	        while (parser.hasNext()) {
 	            RespCommand cmd = parser.next();
 	            lastPos = parser.getPos();
-	            replicationOffset += (lastPos - replicationOffset);
+	            replicationOffset = lastPos;
 
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
