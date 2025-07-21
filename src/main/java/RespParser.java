@@ -31,7 +31,7 @@ class RespParser {
         byte type = data[pos];
         pos++;
         
-        System.out.println("Type of data "+type);
+        System.out.println("Parsed RESP type: " + (char) type);
 
         switch (type) {
         	case '+': // Simple string (e.g., response like PONG from a PING command)
@@ -101,7 +101,7 @@ class RespParser {
     private RespCommand parseArrayResponse() throws IOException {
         int length = parseLength();
         if (length == -1) {
-            return new RespCommand(new String[0]);
+            return new RespCommand(new String[0]); // empty array
         }
 
         List<String> values = new ArrayList<>();
@@ -111,7 +111,7 @@ class RespParser {
             values.add(element.getValue());
         }
 
-        return new RespCommand(values.toArray(new String[0])); // ✅ Command array
+        return new RespCommand(values.toArray(new String[0])); // ✅ Wrap as array
     }
 
 //    private RespCommand parseArrayResponse() throws IOException {

@@ -1,14 +1,17 @@
 import java.util.Arrays;
 
 class RespCommand {
-    private String value;
-    private String[] array;
+    private final String value;
+    private final String[] array;
 
     public RespCommand(String value) {
         this.value = value;
+        this.array = null;
+
     }
 
     public RespCommand(String[] array) {
+    	this.value = null;
         this.array = array;
     }
 
