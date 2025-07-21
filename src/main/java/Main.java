@@ -133,6 +133,7 @@ public class Main {
                                 String ackResponse = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
                                 out.write(ackResponse.getBytes("UTF-8"));
                                 out.flush();
+                                System.out.println("Sent ACK to master");
                             } else {
                                 processCommand(cmd);
                             }
