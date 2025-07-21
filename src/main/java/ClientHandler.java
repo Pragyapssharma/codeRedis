@@ -342,22 +342,35 @@ class ClientHandler extends Thread {
     public static void handleSet(List<String> args, OutputStream out, boolean isReplicaCommand) throws IOException {
         String key = args.get(1);
         String value = args.get(2);
-        long expirationTimestamp = 0;
+        long expire = 0;
 
-        // ✅ Check for optional expiry (e.g. SET mango blueberry px 100)
+        // Optional expiry support
         if (args.size() >= 5 && "px".equalsIgnoreCase(args.get(3))) {
-            long pxMillis = Long.parseLong(args.get(4));
-            expirationTimestamp = System.currentTimeMillis() + pxMillis;
+            expire = System.currentTimeMillis() + Long.parseLong(args.get(4));
         }
 
-        keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
+        keyValueStore.put(key, new KeyValue(value, expire));
         System.out.println("SET applied: " + key + " -> " + value);
 
         if (out != null && !isReplicaCommand) {
             out.write("+OK\r\n".getBytes("UTF-8"));
         }
 
-        // (Optional: propagate to replicas if needed)
+        // ✅ Propagate to all replicas if this is a local SET
+        if (!isReplicaCommand) {
+            String command = "*3\r\n$3\r\nSET\r\n" +
+                             "$" + key.length() + "\r\n" + key + "\r\n" +
+                             "$" + value.length() + "\r\n" + value + "\r\n";
+
+            for (OutputStream replicaOut : replicaOutputs) {
+                try {
+                    replicaOut.write(command.getBytes("UTF-8"));
+                    replicaOut.flush();
+                } catch (IOException e) {
+                    System.err.println("Failed to propagate SET to replica: " + e.getMessage());
+                }
+            }
+        }
     }
 
 //    public static void handleSet(List<String> args, OutputStream out, boolean suppressPropagation) throws IOException {
