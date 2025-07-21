@@ -340,31 +340,24 @@ class ClientHandler extends Thread {
     }
     
     public static void handleSet(List<String> args, OutputStream out, boolean isReplicaCommand) throws IOException {
-        // Store key-value in keyValueStore like you already do
         String key = args.get(1);
         String value = args.get(2);
-        keyValueStore.put(key, new KeyValue(value, 0));
+        long expirationTimestamp = 0;
+
+        // ✅ Check for optional expiry (e.g. SET mango blueberry px 100)
+        if (args.size() >= 5 && "px".equalsIgnoreCase(args.get(3))) {
+            long pxMillis = Long.parseLong(args.get(4));
+            expirationTimestamp = System.currentTimeMillis() + pxMillis;
+        }
+
+        keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
         System.out.println("SET applied: " + key + " -> " + value);
 
-        // ✅ Respond to client (if out != null and not from replica)
         if (out != null && !isReplicaCommand) {
             out.write("+OK\r\n".getBytes("UTF-8"));
         }
 
-        // ✅ Propagate to replicas (if not already from a replica)
-        if (!isReplicaCommand) {
-            String command = "*3\r\n$3\r\nSET\r\n" +
-                             "$" + key.length() + "\r\n" + key + "\r\n" +
-                             "$" + value.length() + "\r\n" + value + "\r\n";
-            for (OutputStream replicaOut : replicaOutputs) {
-                try {
-                    replicaOut.write(command.getBytes("UTF-8"));
-                    replicaOut.flush();
-                } catch (IOException e) {
-                    System.err.println("Failed to replicate SET to one replica: " + e.getMessage());
-                }
-            }
-        }
+        // (Optional: propagate to replicas if needed)
     }
 
 //    public static void handleSet(List<String> args, OutputStream out, boolean suppressPropagation) throws IOException {
