@@ -43,143 +43,203 @@ class ClientHandler extends Thread {
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             OutputStream out = clientSocket.getOutputStream()
         ) {
-        	this.out = out;
-        	if (Config.isReplica && !isReplicaConnection) {
-        	    processMasterHandshake(in, out);
-        	    isReplicaConnection = true;
-        	}
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
-                System.out.println("Received: " + inputLine);
+                if (!inputLine.startsWith("*")) {
+                    out.write("-ERR Invalid command format\r\n".getBytes("UTF-8"));
+                    continue;
+                }
 
-                if (inputLine.startsWith("*")) {
-                    int argCount = Integer.parseInt(inputLine.substring(1));
-                    List<String> args = readArguments(in, argCount);
-                    System.out.println("📦 Parsed RESP args: " + args);
+                int argCount = Integer.parseInt(inputLine.substring(1));
+                List<String> args = readArguments(in, argCount);
+                if (args.isEmpty()) continue;
 
-                    if (args.isEmpty()) continue;
+                String command = args.get(0).toUpperCase();
 
-                    String command = args.get(0).toUpperCase();
-                    
-//                    if (Config.isReplica) {
-//                        // Process replicated command silently
+                switch (command) {
+                    case "PING":
+                        out.write("+PONG\r\n".getBytes("UTF-8"));
+                        break;
+
+                    case "ECHO":
+                        if (args.size() >= 2) {
+                            String echo = args.get(1);
+                            out.write(("$" + echo.length() + "\r\n" + echo + "\r\n").getBytes("UTF-8"));
+                        } else {
+                            out.write("-ERR wrong number of arguments for 'ECHO'\r\n".getBytes("UTF-8"));
+                        }
+                        break;
+
+                    case "SET":
+                        handleSet(args, out, false);
+                        break;
+
+                    case "GET":
+                        handleGet(args, out);
+                        break;
+
+                    default:
+                        out.write("-ERR unknown command\r\n".getBytes("UTF-8"));
+                        break;
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Client connection error: " + e.getMessage());
+        } finally {
+            try {
+                clientSocket.close();
+            } catch (IOException e) {
+                System.err.println("Error closing client socket: " + e.getMessage());
+            }
+        }
+    }
+
+    
+    
+    
+//    public void run() {
+//        try (
+//            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+//            OutputStream out = clientSocket.getOutputStream()
+//        ) {
+//        	this.out = out;
+//        	if (Config.isReplica && !isReplicaConnection) {
+//        	    processMasterHandshake(in, out);
+//        	    isReplicaConnection = true;
+//        	}
+//            String inputLine;
+//            while ((inputLine = in.readLine()) != null) {
+//                System.out.println("Received: " + inputLine);
+//
+//                if (inputLine.startsWith("*")) {
+//                    int argCount = Integer.parseInt(inputLine.substring(1));
+//                    List<String> args = readArguments(in, argCount);
+//                    System.out.println("📦 Parsed RESP args: " + args);
+//
+//                    if (args.isEmpty()) continue;
+//
+//                    String command = args.get(0).toUpperCase();
+//                    
+////                    if (Config.isReplica) {
+////                        // Process replicated command silently
+////                        switch (command) {
+////                            case "SET":
+////                                handleSet(args, null); // null OutputStream => no reply
+////                                break;
+////                            default:
+////                                System.out.println("Replica received unsupported command: " + command);
+////                                break;
+////                        }
+////                        continue;
+////                    }
+////                    if (isReplicaConnection && (command.equals("SET") || command.equals("PING") || command.equals("ECHO"))) {
+//                        // Only swallow known replication commands; let other commands go through
+//                    if (Config.isReplica && isReplicaConnection) {
+//
 //                        switch (command) {
 //                            case "SET":
-//                                handleSet(args, null); // null OutputStream => no reply
+//                                handleSet(args, null, true);
 //                                break;
-//                            default:
-//                                System.out.println("Replica received unsupported command: " + command);
+//                            case "PING":
+//                                out.write("+PONG\r\n".getBytes());
+//                                break;
+//                            case "ECHO":
+//                                if (args.size() >= 2) {
+//                                    String echo = args.get(1);
+//                                    out.write(("$" + echo.length() + "\r\n" + echo + "\r\n").getBytes());
+//                                }
 //                                break;
 //                        }
 //                        continue;
 //                    }
-//                    if (isReplicaConnection && (command.equals("SET") || command.equals("PING") || command.equals("ECHO"))) {
-                        // Only swallow known replication commands; let other commands go through
-                    if (Config.isReplica && isReplicaConnection) {
-                        switch (command) {
-                            case "SET":
-                                handleSet(args, null, true);
-                                break;
-                            case "PING":
-                                out.write("+PONG\r\n".getBytes());
-                                break;
-                            case "ECHO":
-                                if (args.size() >= 2) {
-                                    String echo = args.get(1);
-                                    out.write(("$" + echo.length() + "\r\n" + echo + "\r\n").getBytes());
-                                }
-                                break;
-                        }
-                        continue;
-                    }
-
-                    switch (command) {
-                        case "PING":
-                            out.write("+PONG\r\n".getBytes());
-                            break;
-                            
-                        case "REPLCONF":
-                            out.write("+OK\r\n".getBytes());
-                            break;
-                            
-                        case "PSYNC":
-//                        	if (args.size() == 3 && args.get(1).equals("?") && args.get(2).equals("-1")) {
-//                                String replId = Config.masterReplId;
-//                                String fullResync = "+FULLRESYNC " + replId + " 0\r\n";
-//                                out.write(fullResync.getBytes());
 //
-//                                // Send empty RDB
-//                                byte[] rdbBytes = EMPTY_RDB_FILE;
-//                                String header = "$" + rdbBytes.length + "\r\n";
-//                                out.write(header.getBytes());
-//                                out.write(rdbBytes);
-//                                System.out.println("Sent FULLRESYNC and empty RDB file (" + rdbBytes.length + " bytes)");
+//                    switch (command) {
+//                        case "PING":
+//                            out.write("+PONG\r\n".getBytes());
+//                            break;
+//                            
+//                        case "REPLCONF":
+//                            out.write("+OK\r\n".getBytes());
+//                            break;
+//                            
+//                        case "PSYNC":
+////                        	if (args.size() == 3 && args.get(1).equals("?") && args.get(2).equals("-1")) {
+////                                String replId = Config.masterReplId;
+////                                String fullResync = "+FULLRESYNC " + replId + " 0\r\n";
+////                                out.write(fullResync.getBytes());
+////
+////                                // Send empty RDB
+////                                byte[] rdbBytes = EMPTY_RDB_FILE;
+////                                String header = "$" + rdbBytes.length + "\r\n";
+////                                out.write(header.getBytes());
+////                                out.write(rdbBytes);
+////                                System.out.println("Sent FULLRESYNC and empty RDB file (" + rdbBytes.length + " bytes)");
+////
+////                                // Mark this as replica
+////                                isReplicaConnection = true;
+////                                replicaOutputs.add(out);
+////                                System.out.println("Added new replica connection. Total: " + replicaOutputs.size());
+////                            } else {
+////                                out.write("-ERR unsupported PSYNC format\r\n".getBytes());
+////                            }
+//                        	handlePsync(args, out);
+//                            break;
 //
-//                                // Mark this as replica
-//                                isReplicaConnection = true;
-//                                replicaOutputs.add(out);
-//                                System.out.println("Added new replica connection. Total: " + replicaOutputs.size());
-//                            } else {
-//                                out.write("-ERR unsupported PSYNC format\r\n".getBytes());
+//
+//                        case "ECHO":
+//                            if (args.size() >= 2) {
+//                                String echo = args.get(1);
+//                                String response = "$" + echo.length() + "\r\n" + echo + "\r\n";
+//                                out.write(response.getBytes());
 //                            }
-                        	handlePsync(args, out);
-                            break;
-
-
-                        case "ECHO":
-                            if (args.size() >= 2) {
-                                String echo = args.get(1);
-                                String response = "$" + echo.length() + "\r\n" + echo + "\r\n";
-                                out.write(response.getBytes());
-                            }
-                            break;
-
-                        case "SET":
-                            handleSet(args, out, false);
-                            break;
-
-                        case "GET":
-                            handleGet(args, out);
-                            break;
-                        
-                        case "CONFIG":
-                            handleConfig(args, out);
-                            break;
-                            
-                        case "KEYS":
-                            handleKeys(args, out);
-                            break;
-                            
-                        case "INFO":
-                            handleInfo(args, out);
-                            break;
-
-                        default:
-                            System.out.println("Unknown command: " + command);
-                            out.write(("-ERR unknown command\r\n").getBytes());
-                            break;
-                    }
-                } else {
-                    System.out.println("Invalid command format: " + inputLine);
-                }
-            }
-        } catch (IOException e) {
-            System.out.println("IOException handling client: " + e.getMessage());
-        } finally {
-            try {
-                if (clientSocket != null) {
-                    clientSocket.close();
-                }
-            } catch (IOException e) {
-                System.out.println("IOException during client socket cleanup: " + e.getMessage());
-            } finally {
-            	if (isReplicaConnection) {
-                    replicaOutputs.remove(out);
-                    System.out.println("Replica removed. Remaining: " + replicaOutputs.size());
-                }
-            }
-        }
-    }
+//                            break;
+//
+//                        case "SET":
+//                            handleSet(args, out, false);
+//                            break;
+//
+//                        case "GET":
+//                            handleGet(args, out);
+//                            break;
+//                        
+//                        case "CONFIG":
+//                            handleConfig(args, out);
+//                            break;
+//                            
+//                        case "KEYS":
+//                            handleKeys(args, out);
+//                            break;
+//                            
+//                        case "INFO":
+//                            handleInfo(args, out);
+//                            break;
+//
+//                        default:
+//                            System.out.println("Unknown command: " + command);
+//                            out.write(("-ERR unknown command\r\n").getBytes());
+//                            break;
+//                    }
+//                } else {
+//                    System.out.println("Invalid command format: " + inputLine);
+//                }
+//            }
+//        } catch (IOException e) {
+//            System.out.println("IOException handling client: " + e.getMessage());
+//        } finally {
+//            try {
+//                if (clientSocket != null) {
+//                    clientSocket.close();
+//                }
+//            } catch (IOException e) {
+//                System.out.println("IOException during client socket cleanup: " + e.getMessage());
+//            } finally {
+//            	if (isReplicaConnection) {
+//                    replicaOutputs.remove(out);
+//                    System.out.println("Replica removed. Remaining: " + replicaOutputs.size());
+//                }
+//            }
+//        }
+//    }
 
     private List<String> readArguments(BufferedReader in, int count) throws IOException {
         List<String> args = new ArrayList<>();
@@ -198,7 +258,7 @@ class ClientHandler extends Thread {
     public static void handleSet(List<String> args, OutputStream out, boolean suppressPropagation) throws IOException {
         if (args.size() < 3) {
         	if (out != null) {
-            out.write(("-ERR wrong number of arguments for 'SET'\r\n").getBytes());
+            out.write(("-ERR wrong number of arguments for 'SET'\r\n").getBytes("UTF-8"));
             return;
         	}
         }
@@ -212,7 +272,7 @@ class ClientHandler extends Thread {
                 expiryMillis = Long.parseLong(args.get(4));
             } catch (NumberFormatException e) {
             	if (out != null) {
-                    out.write(("-ERR PX value is not a number\r\n").getBytes());
+                    out.write(("-ERR PX value is not a number\r\n").getBytes("UTF-8"));
                 }
                 return;
             }
@@ -222,7 +282,7 @@ class ClientHandler extends Thread {
         keyValueStore.put(key, new KeyValue(value, expirationTimestamp));
 
         if (out != null) {
-            out.write("+OK\r\n".getBytes());
+            out.write("+OK\r\n".getBytes("UTF-8"));
         }
         
         if (!suppressPropagation) {
@@ -262,16 +322,6 @@ class ClientHandler extends Thread {
         String key = args.get(1);
         KeyValue kv = keyValueStore.get(key);
         
-        
-        System.out.println("🔍 handleGet: key=" + key);
-        System.out.println("🔍 keyValueStore.get(key)=" + (kv == null ? "null" : kv.value));
-        if (kv != null && !kv.hasExpired()) {
-            byte[] valueBytes = kv.value.getBytes("UTF-8");
-            System.out.println("✅ Sending Bulk String: $" + valueBytes.length + "\\r\\n" + kv.value + "\\r\\n");
-        }
-        
-        
-
         if (kv == null || kv.hasExpired()) {
             out.write("$-1\r\n".getBytes("UTF-8")); // Null bulk string
         } else {

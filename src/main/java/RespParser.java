@@ -4,7 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 class RespParser {
-    private byte[] data;
+    private final byte[] data;
     private int pos;
 
     public RespParser(byte[] data) {
@@ -192,7 +192,7 @@ class RespParser {
         int start = pos;
         while (pos < data.length) {
             if (data[pos] == '\r' && pos + 1 < data.length && data[pos + 1] == '\n') {
-                String line = new String(data, start, pos - start);
+                String line = new String(data, start, pos - start, StandardCharsets.UTF_8);
                 pos += 2; // Skip \r\n
                 return line;
             }
