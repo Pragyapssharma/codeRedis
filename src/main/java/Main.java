@@ -149,14 +149,24 @@ public class Main {
                     continue;
                 }
 
-                if (arr != null) {
-                    processCommand(cmd);
-                    bulkBuffer.clear();
-                } else if (val != null) {
+                if (val != null) {
                     bulkBuffer.add(val);
+
                     if (bulkBuffer.size() == 3) {
-                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
+                        String[] complete = bulkBuffer.toArray(new String[0]);
                         bulkBuffer.clear();
+
+                        if ("REPLCONF".equalsIgnoreCase(complete[0]) &&
+                            "GETACK".equalsIgnoreCase(complete[1]) &&
+                            "*".equals(complete[2])) {
+
+                            String ackResponse = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+                            out.write(ackResponse.getBytes("UTF-8"));
+                            out.flush();
+                            System.out.println("Sent ACK to master.");
+                        } else {
+                            processCommand(new RespCommand(complete));
+                        }
                     }
                 }
             }
