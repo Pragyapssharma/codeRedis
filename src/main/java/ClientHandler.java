@@ -55,6 +55,7 @@ class ClientHandler extends Thread {
                 if (inputLine.startsWith("*")) {
                     int argCount = Integer.parseInt(inputLine.substring(1));
                     List<String> args = readArguments(in, argCount);
+                    System.out.println("📦 Parsed RESP args: " + args);
 
                     if (args.isEmpty()) continue;
 
@@ -259,6 +260,16 @@ class ClientHandler extends Thread {
 
         String key = args.get(1);
         KeyValue kv = keyValueStore.get(key);
+        
+        
+        System.out.println("🔍 handleGet: key=" + key);
+        System.out.println("🔍 keyValueStore.get(key)=" + (kv == null ? "null" : kv.value));
+        if (kv != null && !kv.hasExpired()) {
+            byte[] valueBytes = kv.value.getBytes("UTF-8");
+            System.out.println("✅ Sending Bulk String: $" + valueBytes.length + "\\r\\n" + kv.value + "\\r\\n");
+        }
+        
+        
 
         if (kv == null || kv.hasExpired()) {
             out.write("$-1\r\n".getBytes("UTF-8")); // Null bulk string
