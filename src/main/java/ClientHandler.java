@@ -261,7 +261,7 @@ class ClientHandler extends Thread {
         } else {
             String value = kv.value;
             byte[] valueBytes = value.getBytes("UTF-8");
-            System.out.println("Responding to GET with bulk: " + kv.value);
+            System.out.println("GET request received from client. Responding with: $" + valueBytes.length + " " + kv.value);
             out.write(("$" + valueBytes.length + "\r\n").getBytes("UTF-8"));
             out.write(valueBytes);
             out.write("\r\n".getBytes("UTF-8"));
