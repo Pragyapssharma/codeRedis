@@ -42,14 +42,10 @@ class RespParser {
             	return parseArrayResponse();
             
             case '-':  // Error message
-//            	return parseErrorResponse();
-                String errorMessage = parseSimpleStringValue();
-                throw new IOException("RESP Error: " + errorMessage);
+            	return parseErrorResponse();
                 
             case ':':  // Integer type (not typically used in replication but can be useful)
-//            	return parseIntegerResponse();
-                String integerValue = parseSimpleStringValue();
-                return new RespCommand(integerValue);
+            	return parseIntegerResponse();
                 
             default:
                 throw new IOException("Unsupported RESP type: " + (char) type);
@@ -70,7 +66,6 @@ class RespParser {
         if (pos + length + 2 > data.length) {
             throw new IOException("Invalid or incomplete bulk string");
         }
-//        String value = new String(data, pos, length);
         String value = new String(data, pos, length, StandardCharsets.UTF_8);
         pos += length;
         System.out.println("debug - bulk :"+value);
@@ -95,6 +90,16 @@ class RespParser {
         }
 
         return new RespCommand(values.toArray(new String[0]));
+    }
+    
+    private RespCommand parseErrorResponse() throws IOException {
+        String errorMessage = parseSimpleStringValue();
+        throw new IOException("RESP Error: " + errorMessage);
+    }
+    
+    private RespCommand parseIntegerResponse() throws IOException {
+        String integerValue = parseSimpleStringValue();
+        return new RespCommand(integerValue);
     }
 
     private String parseSimpleStringValue() throws IOException {
