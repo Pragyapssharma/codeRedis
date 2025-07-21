@@ -146,34 +146,45 @@ public class Main {
         return sb.toString();
     }
 
+    private static List<String> bulkBuffer = new ArrayList<>();
+
     private static int processPropagatedCommands(byte[] data) {
-        if (data.length == 0) return 0;
-
-        // ✅ Only start parsing if array marker exists
-        if (data[0] != '*') {
-            System.out.println("Skipping non-array RESP chunk...");
-            return 0; // Wait for a proper RESP array
-        }
-
         try {
+            System.out.println("Processing propagated RESP commands...");
             RespParser parser = new RespParser(data);
             int lastPos = 0;
 
             while (parser.hasNext()) {
                 RespCommand cmd = parser.next();
-                if (cmd == null || cmd.getArray() == null) {
-                    System.out.println("Command array: null");
-                    break;
-                }
+                if (cmd == null) break;
 
-                System.out.println("Command array: " + Arrays.toString(cmd.getArray()));
-                processCommand(cmd); // Applies SET silently
-                lastPos = parser.getPos();
+                String[] arr = cmd.getArray();
+                String val = cmd.getValue();
+
+                if (arr != null) {
+                    // ✅ Full command in array format (e.g., ["SET", "foo", "123"])
+                    System.out.println("Command array: " + Arrays.toString(arr));
+                    processCommand(cmd);
+                    lastPos = parser.getPos();
+                    bulkBuffer.clear(); // discard any leftovers
+                } else if (val != null) {
+                    // ✅ Bulk string, likely part of a command
+                    bulkBuffer.add(val);
+                    if (bulkBuffer.size() == 3) {
+                        // Treat it as a full command
+                        String[] complete = bulkBuffer.toArray(new String[0]);
+                        System.out.println("Command array (assembled): " + Arrays.toString(complete));
+                        processCommand(new RespCommand(complete));
+                        bulkBuffer.clear();
+                        lastPos = parser.getPos();
+                    }
+                }
             }
 
             return lastPos;
         } catch (Exception e) {
             System.err.println("Failed to process command: " + e.getMessage());
+            bulkBuffer.clear(); // reset on failure
             return 0;
         }
     }
