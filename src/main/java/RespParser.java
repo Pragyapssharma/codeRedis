@@ -1,7 +1,9 @@
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 class RespParser {
     private final byte[] data;
@@ -95,21 +97,37 @@ class RespParser {
         pos += 2;
         return new RespCommand(value);
     }
-
+    
     private RespCommand parseArrayResponse() throws IOException {
         int length = parseLength();
         if (length == -1) {
-            return new RespCommand(new RespCommand[0]); // Null array treated as empty array
+            return new RespCommand(new String[0]); // ✅ Empty command array
         }
-        RespCommand[] elements = new RespCommand[length];
+
+        List<String> values = new ArrayList<>();
         for (int i = 0; i < length; i++) {
-            elements[i] = next();
-            if (elements[i] == null) {
-                throw new IOException("Null element in array");
-            }
+            RespCommand element = next();
+            if (element == null) throw new IOException("Null element in array");
+            values.add(element.getValue());
         }
-        return new RespCommand(elements);
+
+        return new RespCommand(values.toArray(new String[0])); // ✅ Return command array
     }
+
+//    private RespCommand parseArrayResponse() throws IOException {
+//        int length = parseLength();
+//        if (length == -1) {
+//            return new RespCommand(new RespCommand[0]); // Null array treated as empty array
+//        }
+//        RespCommand[] elements = new RespCommand[length];
+//        for (int i = 0; i < length; i++) {
+//            elements[i] = next();
+//            if (elements[i] == null) {
+//                throw new IOException("Null element in array");
+//            }
+//        }
+//        return new RespCommand(elements);
+//    }
     
     
 //    private RespCommand parseSimpleStringResponse() throws IOException {

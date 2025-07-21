@@ -2,22 +2,29 @@ import java.util.Arrays;
 
 class RespCommand {
 //    private final String[] array;
-	private final String value;
-    private RespCommand[] array;
+	private String value;
+    private String[] array;
 
     public RespCommand(String value) {
         this.value = value;
-        this.array = null;
+//        this.array = null;
     }
     
-    public RespCommand(RespCommand[] array) {
+    public RespCommand(String[] array) {
         this.array = array;
-        this.value = null; // No main array
     }
+    
+//    public RespCommand(RespCommand[] array) {
+//       this.array = array;
+//        this.value = null; // No main array
+//    }
     
     public String getValue() {
         return value;
     }
+    
+    
+
 
 //    public String[] getArray() {
 //        return array;
@@ -27,23 +34,32 @@ class RespCommand {
 //        return subCommands;
 //    }
     
+//    public String[] getArray() {
+//        if (array == null) return null;
+//
+//        String[] result = new String[array.length];
+//        for (int i = 0; i < array.length; i++) {
+//            result[i] = array[i].getValue();
+//        }
+//        return result;
+//    }
+//    
+//    public boolean isSimple() {
+//        return value != null;
+//    }
+//    
+//    public boolean isArray() {
+//        return array != null;
+//    }
+    
     public String[] getArray() {
-        if (array == null) return null;
+        return array;
+    }
 
-        String[] result = new String[array.length];
-        for (int i = 0; i < array.length; i++) {
-            result[i] = array[i].getValue();
-        }
-        return result;
-    }
-    
     public boolean isSimple() {
-        return value != null;
+        return array == null && value != null;
     }
-    
-    public boolean isArray() {
-        return array != null;
-    }
+
     
     @Override
     public String toString() {
