@@ -146,6 +146,9 @@ public class Main {
                     out.write(ack.getBytes("UTF-8"));
                     out.flush();
                     System.out.println("Sent ACK to master.");
+                    
+                    bulkBuffer.clear(); 
+                    
                     continue;
                 }
 
