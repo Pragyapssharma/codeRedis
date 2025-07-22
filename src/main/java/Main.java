@@ -164,11 +164,10 @@ public class Main {
 						     bulkBuffer.clear();
 				             continue;
 					        }
-
-//						bulkBuffer.clear();
-//						continue;
 					}
-				} else {
+//						bulkBuffer.clear();
+						continue;
+					}
 					if (arr != null && arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0])
 							&& "GETACK".equalsIgnoreCase(arr[1]) && "*".equals(arr[2])) {
 
@@ -178,12 +177,12 @@ public class Main {
 						out.write(ack.getBytes("UTF-8"));
 						out.flush();
 						System.out.println("Sent ACK (array mode) to master.");
-					} else {
-						cumulativeOffset += commandSize;
-						processCommand(cmd);
+						continue;
+
 					}
+					cumulativeOffset += commandSize;
+				    processCommand(cmd);
 				}
-			}
 
 			return lastPos;
 		} catch (Exception e) {
