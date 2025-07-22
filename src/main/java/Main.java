@@ -131,18 +131,18 @@ public class Main {
 	private static int processStream(byte[] data, OutputStream out) {
 	    try {
 	        RespParser parser = new RespParser(data);
-	        int lastPos = 0;
+	        int totalConsumed = 0;
 
 	        while (parser.hasNext()) {
-	            int startPos = parser.getPos();
+	            int before = parser.getRawBytesRead();  // implement this in RespParser
 	            RespCommand cmd = parser.next();
-	            int endPos = parser.getPos();
-	            int commandSize = endPos - startPos;
+	            int after = parser.getRawBytesRead();
+
+	            int commandSize = after - before;
 
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
 
-	            // For partial commands
 	            if (val != null) {
 	                bulkBuffer.add(val);
 	                if (bulkBuffer.size() == 3) {
@@ -153,15 +153,15 @@ public class Main {
 	                    if ("REPLCONF".equalsIgnoreCase(a0)
 	                     && "GETACK".equalsIgnoreCase(a1)
 	                     && "*".equals(a2)) {
-	                        // Respond with current offset before adding size
 	                        respondWithAck(out);
-	                        cumulativeOffset += commandSize; // Add size AFTER response
+	                        cumulativeOffset += commandSize;
 	                    } else {
 	                        cumulativeOffset += commandSize;
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
 	                    bulkBuffer.clear();
 	                }
+	                totalConsumed += commandSize;
 	                continue;
 	            }
 
@@ -171,23 +171,23 @@ public class Main {
 	                "GETACK".equalsIgnoreCase(arr[1]) &&
 	                "*".equals(arr[2])) {
 	                respondWithAck(out);
-	                cumulativeOffset += commandSize; // Add AFTER responding
+	                cumulativeOffset += commandSize;
 	            } else {
 	                cumulativeOffset += commandSize;
 	                processCommand(cmd);
 	            }
 
-	            lastPos = endPos;
+	            totalConsumed += commandSize;
 	        }
 
-	        return lastPos;
+	        return totalConsumed;
 	    } catch (Exception e) {
 	        System.err.println("Failed to process command: " + e.getMessage());
 	        bulkBuffer.clear();
 	        return 0;
 	    }
 	}
-
+	
 	private static void respondWithAck(OutputStream out) throws IOException {
 	    String offset = Long.toString(cumulativeOffset);
 	    String ack =
@@ -199,7 +199,6 @@ public class Main {
 	    out.write(ack.getBytes("UTF-8"));
 	    out.flush();
 	}
-
 
 	private static String readLine(InputStream in) throws IOException {
 		StringBuilder sb = new StringBuilder();

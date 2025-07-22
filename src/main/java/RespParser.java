@@ -6,6 +6,7 @@ import java.util.List;
 class RespParser {
     private final byte[] data;
     private int pos;
+    private int rawBytesRead = 0;
 
     public RespParser(byte[] data) {
         this.data = data;
@@ -13,6 +14,10 @@ class RespParser {
     }
     
     public int getPos() {
+        return pos;
+    }
+    
+    public int getRawBytesRead() {
         return pos;
     }
 
