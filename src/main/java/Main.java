@@ -144,7 +144,6 @@ public class Main {
 				String val = cmd.getValue();
 				if (val != null) {
 					bulkBuffer.add(val);
-//					cumulativeOffset += commandSize;
 
 					if (bulkBuffer.size() == 3) {
 						String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
@@ -156,16 +155,14 @@ public class Main {
 							out.write(ack.getBytes("UTF-8"));
 							out.flush();
 							System.out.println("Sent ACK (bulk mode) to master.");
-							bulkBuffer.clear();
-			                continue;
 						 } else {
 							 cumulativeOffset += commandSize * 3;
 						     processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
+						 }
 						     bulkBuffer.clear();
 				             continue;
-					        }
+					        
 					}
-//						bulkBuffer.clear();
 						continue;
 					}
 					if (arr != null && arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0])
