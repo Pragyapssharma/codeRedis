@@ -142,63 +142,54 @@ public class Main {
 				String[] arr = cmd.getArray();
 				String val = cmd.getValue();
 
-				// First: If it's a normal command, count its size
-				if (arr != null && !(arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0]) &&
-				                                 "GETACK".equalsIgnoreCase(arr[1]) &&
-				                                 "*".equals(arr[2]))) {
-					cumulativeOffset += commandSize;
-				}
-
-				// Then: process GETACK
-				if (arr != null && arr.length == 3 &&
-				    "REPLCONF".equalsIgnoreCase(arr[0]) &&
-				    "GETACK".equalsIgnoreCase(arr[1]) &&
-				    "*".equals(arr[2])) {
-
-					String offsetStr = Long.toString(cumulativeOffset);
-					String ack = "*3\r\n" +
-					             "$8\r\nREPLCONF\r\n" +
-					             "$3\r\nACK\r\n" +
-					             "$" + offsetStr.length() + "\r\n" +
-					             offsetStr + "\r\n";
-					out.write(ack.getBytes("UTF-8"));
-					out.flush();
-					System.out.println("Sent ACK (array mode) to master.");
-					continue;
-				}
-
 				if (val != null) {
-					bulkBuffer.add(val);
-					if (bulkBuffer.size() == 3) {
-						String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
+		            bulkBuffer.add(val);
+		            if (bulkBuffer.size() == 3) {
+		                String a0 = bulkBuffer.get(0),
+		                       a1 = bulkBuffer.get(1),
+		                       a2 = bulkBuffer.get(2);
 
-						if ("REPLCONF".equalsIgnoreCase(a0) &&
-						    "GETACK".equalsIgnoreCase(a1) &&
-						    "*".equals(a2)) {
+		                if ("REPLCONF".equalsIgnoreCase(a0)
+		                 && "GETACK".equalsIgnoreCase(a1)
+		                 && "*".equals(a2)) {
+		                    String offset = Long.toString(cumulativeOffset);
+		                    String ack =
+		                      "*3\r\n" +
+		                      "$8\r\nREPLCONF\r\n" +
+		                      "$3\r\nACK\r\n" +
+		                      "$" + offset.length() + "\r\n" +
+		                      offset + "\r\n";
+		                    out.write(ack.getBytes("UTF-8"));
+		                    out.flush();
+		                } else {
+		                    cumulativeOffset += commandSize * 3;
+		                    processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
+		                }
+		                bulkBuffer.clear();
+		            }
+		            continue;
+		        }
 
-							String offsetStr = Long.toString(cumulativeOffset);
-							String ack = "*3\r\n" +
-							             "$8\r\nREPLCONF\r\n" +
-							             "$3\r\nACK\r\n" +
-							             "$" + offsetStr.length() + "\r\n" +
-							             offsetStr + "\r\n";
-							out.write(ack.getBytes("UTF-8"));
-							out.flush();
-							System.out.println("Sent ACK (bulk mode) to master.");
-							bulkBuffer.clear();
-							continue;
-						} else {
-							cumulativeOffset += commandSize * 3;
-							processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
-							bulkBuffer.clear();
-							continue;
-						}
-				}
-				
-				} else {
-					processCommand(cmd); // Process anything else
-				}
-			}
+		        if (arr != null
+		         && arr.length == 3
+		         && "REPLCONF".equalsIgnoreCase(arr[0])
+		         && "GETACK".equalsIgnoreCase(arr[1])
+		         && "*".equals(arr[2])) {
+		            String offset = Long.toString(cumulativeOffset);
+		            String ack =
+		              "*3\r\n" +
+		              "$8\r\nREPLCONF\r\n" +
+		              "$3\r\nACK\r\n" +
+		              "$" + offset.length() + "\r\n" +
+		              offset + "\r\n";
+		            out.write(ack.getBytes("UTF-8"));
+		            out.flush();
+		            continue;
+		        }
+
+		        cumulativeOffset += commandSize;
+		        processCommand(cmd);
+		    }
 
 			return lastPos;
 		} catch (Exception e) {
