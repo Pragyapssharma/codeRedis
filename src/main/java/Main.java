@@ -5,7 +5,6 @@ import java.util.*;
 public class Main {
 	private static ServerSocket serverSocket;
 	private static List<String> bulkBuffer = new ArrayList<>();
-//	private static long replicationOffset = 0;
 	private static long cumulativeOffset = 0;
 
 	public static void main(String[] args) {
@@ -102,6 +101,7 @@ public class Main {
 				in.read(new byte[rdbLength]);
 				readLine(in);
 				System.out.println("Read " + rdbLength + " RDB bytes from master.");
+				cumulativeOffset = 0;
 			}
 
 			new Thread(() -> {
