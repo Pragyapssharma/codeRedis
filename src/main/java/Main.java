@@ -136,54 +136,54 @@ public class Main {
 	        int bulkStart = 0;
 
 	        while (parser.hasNext()) {
-	            int before = parser.getRawBytesRead();  // implement this in RespParser
+	            int start = parser.getRawBytesRead();
 	            RespCommand cmd = parser.next();
-	            int after = parser.getRawBytesRead();
-
-	            int commandSize = after - before;
+	            int end = parser.getRawBytesRead();
+	            int segmentSize = end - start;
+	            totalConsumed += segmentSize;
 
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
 
 	            if (val != null) {
-	            	if (bulkBuffer.isEmpty()) bulkStart = before;
+	                if (bulkBuffer.isEmpty()) {
+	                    bulkStart = start;
+	                }
 	                bulkBuffer.add(val);
+
 	                if (bulkBuffer.size() == 3) {
 	                    String a0 = bulkBuffer.get(0),
 	                           a1 = bulkBuffer.get(1),
 	                           a2 = bulkBuffer.get(2);
-	                    
-	                    int fullBulkSize = after - bulkStart;
+
+	                    int fullBulkSize = end - bulkStart;
 
 	                    if ("REPLCONF".equalsIgnoreCase(a0)
 	                     && "GETACK".equalsIgnoreCase(a1)
 	                     && "*".equals(a2)) {
 	                        respondWithAck(out);
-//	                        cumulativeOffset += commandSize;
 	                    } else {
-	                    	cumulativeOffset += fullBulkSize;
+	                        cumulativeOffset += fullBulkSize;
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
+
 	                    bulkBuffer.clear();
-	                    totalConsumed += fullBulkSize;
+	                    continue;
 	                }
-//	                totalConsumed += commandSize;
 	                continue;
 	            }
 
-	            if (arr != null &&
-	                arr.length == 3 &&
-	                "REPLCONF".equalsIgnoreCase(arr[0]) &&
-	                "GETACK".equalsIgnoreCase(arr[1]) &&
-	                "*".equals(arr[2])) {
+	            if (arr != null
+	             && arr.length == 3
+	             && "REPLCONF".equalsIgnoreCase(arr[0])
+	             && "GETACK".equalsIgnoreCase(arr[1])
+	             && "*".equals(arr[2])) {
 	                respondWithAck(out);
-//	                cumulativeOffset += commandSize;
-	            } else {
-	                cumulativeOffset += commandSize;
-	                processCommand(cmd);
+	                continue;
 	            }
 
-	            totalConsumed += commandSize;
+	            cumulativeOffset += segmentSize;
+	            processCommand(cmd);
 	        }
 
 	        return totalConsumed;
