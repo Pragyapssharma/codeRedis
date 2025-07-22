@@ -172,15 +172,22 @@ public class Main {
 	                continue;
 	            }
 
-	            if (arr != null
-	             && arr.length == 3
-	             && "REPLCONF".equalsIgnoreCase(arr[0])
-	             && "GETACK".equalsIgnoreCase(arr[1])
-	             && "*".equals(arr[2])) {
-	                respondWithAck(out);
+	            if (arr != null) {
+	                if (arr.length == 3 &&
+	                    "REPLCONF".equalsIgnoreCase(arr[0]) &&
+	                    "GETACK".equalsIgnoreCase(arr[1]) &&
+	                    "*".equals(arr[2])) {
+	                    respondWithAck(out);
+	                    // Do NOT increment offset here
+	                } else {
+	                    cumulativeOffset += segmentSize;
+	                    processCommand(cmd);
+	                }
+
 	                totalConsumed += segmentSize;
 	                continue;
 	            }
+
 
 	            cumulativeOffset += segmentSize;
 	            processCommand(cmd);
