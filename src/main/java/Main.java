@@ -156,7 +156,7 @@ public class Main {
 	                        respondWithAck(out);
 	                        cumulativeOffset += commandSize;
 	                    } else {
-	                        cumulativeOffset += commandSize;
+	                        cumulativeOffset += commandSize * 3;
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
 	                    bulkBuffer.clear();
@@ -171,7 +171,7 @@ public class Main {
 	                "GETACK".equalsIgnoreCase(arr[1]) &&
 	                "*".equals(arr[2])) {
 	                respondWithAck(out);
-	                cumulativeOffset += commandSize;
+//	                cumulativeOffset += commandSize;
 	            } else {
 	                cumulativeOffset += commandSize;
 	                processCommand(cmd);
