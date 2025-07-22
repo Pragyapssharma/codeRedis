@@ -144,24 +144,22 @@ public class Main {
 				String val = cmd.getValue();
 				if (val != null) {
 					bulkBuffer.add(val);
-					cumulativeOffset += commandSize;
+//					cumulativeOffset += commandSize;
 
 					if (bulkBuffer.size() == 3) {
 						String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
 						if ("REPLCONF".equalsIgnoreCase(a0) && "GETACK".equalsIgnoreCase(a1) && "*".equals(a2)) {
 
-							String offsetStr = Long.toString(cumulativeOffset - commandSize);
+							String offsetStr = Long.toString(cumulativeOffset);
 							String ack = "*3\r\n" + "$8\r\nREPLCONF\r\n" + "$3\r\nACK\r\n" + "$" + offsetStr.length()
 									+ "\r\n" + offsetStr + "\r\n";
 							out.write(ack.getBytes("UTF-8"));
 							out.flush();
 							System.out.println("Sent ACK (bulk mode) to master.");
-							
-							bulkBuffer.clear();
-						    continue;
-						} else {
-							processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
-						}
+						 } else {
+					            processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
+					            cumulativeOffset += commandSize;
+					        }
 
 						bulkBuffer.clear();
 						continue;
