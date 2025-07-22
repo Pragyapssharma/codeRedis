@@ -136,11 +136,10 @@ public class Main {
 	        int bulkStart = 0;
 
 	        while (parser.hasNext()) {
-	            int start = parser.getRawBytesRead();
+	        	int start = parser.getRawBytesRead();
 	            RespCommand cmd = parser.next();
 	            int end = parser.getRawBytesRead();
 	            int segmentSize = end - start;
-	            totalConsumed += segmentSize;
 
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
@@ -168,7 +167,7 @@ public class Main {
 	                    }
 
 	                    bulkBuffer.clear();
-	                    continue;
+	                    totalConsumed += fullBulkSize;
 	                }
 	                continue;
 	            }
@@ -179,11 +178,13 @@ public class Main {
 	             && "GETACK".equalsIgnoreCase(arr[1])
 	             && "*".equals(arr[2])) {
 	                respondWithAck(out);
+	                totalConsumed += segmentSize;
 	                continue;
 	            }
 
 	            cumulativeOffset += segmentSize;
 	            processCommand(cmd);
+	            totalConsumed += segmentSize;
 	        }
 
 	        return totalConsumed;
