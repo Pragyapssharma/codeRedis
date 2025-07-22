@@ -142,7 +142,7 @@ public class Main {
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
 
-	            // Handle bulk buffer for fragmented commands
+	            // For partial commands
 	            if (val != null) {
 	                bulkBuffer.add(val);
 	                if (bulkBuffer.size() == 3) {
@@ -150,18 +150,12 @@ public class Main {
 	                           a1 = bulkBuffer.get(1),
 	                           a2 = bulkBuffer.get(2);
 
-	                    if ("REPLCONF".equalsIgnoreCase(a0) &&
-	                        "GETACK".equalsIgnoreCase(a1) &&
-	                        "*".equals(a2)) {
-	                        // Respond with current offset before counting this command
-	                        String offset = Long.toString(cumulativeOffset);
-	                        String ack = "*3\r\n" +
-	                                     "$8\r\nREPLCONF\r\n" +
-	                                     "$3\r\nACK\r\n" +
-	                                     "$" + offset.length() + "\r\n" +
-	                                     offset + "\r\n";
-	                        out.write(ack.getBytes("UTF-8"));
-	                        out.flush();
+	                    if ("REPLCONF".equalsIgnoreCase(a0)
+	                     && "GETACK".equalsIgnoreCase(a1)
+	                     && "*".equals(a2)) {
+	                        // Respond with current offset before adding size
+	                        respondWithAck(out);
+	                        cumulativeOffset += commandSize; // Add size AFTER response
 	                    } else {
 	                        cumulativeOffset += commandSize;
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
@@ -171,23 +165,14 @@ public class Main {
 	                continue;
 	            }
 
-	            // Handle inline array command
 	            if (arr != null &&
 	                arr.length == 3 &&
 	                "REPLCONF".equalsIgnoreCase(arr[0]) &&
 	                "GETACK".equalsIgnoreCase(arr[1]) &&
 	                "*".equals(arr[2])) {
-	                // Respond with current offset before counting this command
-	                String offset = Long.toString(cumulativeOffset);
-	                String ack = "*3\r\n" +
-	                             "$8\r\nREPLCONF\r\n" +
-	                             "$3\r\nACK\r\n" +
-	                             "$" + offset.length() + "\r\n" +
-	                             offset + "\r\n";
-	                out.write(ack.getBytes("UTF-8"));
-	                out.flush();
+	                respondWithAck(out);
+	                cumulativeOffset += commandSize; // Add AFTER responding
 	            } else {
-	                // Normal command: count it towards offset and process
 	                cumulativeOffset += commandSize;
 	                processCommand(cmd);
 	            }
@@ -201,6 +186,18 @@ public class Main {
 	        bulkBuffer.clear();
 	        return 0;
 	    }
+	}
+
+	private static void respondWithAck(OutputStream out) throws IOException {
+	    String offset = Long.toString(cumulativeOffset);
+	    String ack =
+	        "*3\r\n" +
+	        "$8\r\nREPLCONF\r\n" +
+	        "$3\r\nACK\r\n" +
+	        "$" + offset.length() + "\r\n" +
+	        offset + "\r\n";
+	    out.write(ack.getBytes("UTF-8"));
+	    out.flush();
 	}
 
 
