@@ -6,6 +6,7 @@ public class Main {
 	private static ServerSocket serverSocket;
 	private static List<String> bulkBuffer = new ArrayList<>();
 	private static long cumulativeOffset = 0;
+	private static int bulkStartPos = 0;
 
 	public static void main(String[] args) {
 		String masterHost = null;
@@ -132,6 +133,7 @@ public class Main {
 	    try {
 	        RespParser parser = new RespParser(data);
 	        int totalConsumed = 0;
+	        int bulkStart = 0;
 
 	        while (parser.hasNext()) {
 	            int before = parser.getRawBytesRead();  // implement this in RespParser
@@ -144,24 +146,28 @@ public class Main {
 	            String val = cmd.getValue();
 
 	            if (val != null) {
+	            	if (bulkBuffer.isEmpty()) bulkStart = before;
 	                bulkBuffer.add(val);
 	                if (bulkBuffer.size() == 3) {
 	                    String a0 = bulkBuffer.get(0),
 	                           a1 = bulkBuffer.get(1),
 	                           a2 = bulkBuffer.get(2);
+	                    
+	                    int fullBulkSize = after - bulkStart;
 
 	                    if ("REPLCONF".equalsIgnoreCase(a0)
 	                     && "GETACK".equalsIgnoreCase(a1)
 	                     && "*".equals(a2)) {
 	                        respondWithAck(out);
-	                        cumulativeOffset += commandSize;
+//	                        cumulativeOffset += commandSize;
 	                    } else {
-	                        cumulativeOffset += commandSize * 3;
+	                    	cumulativeOffset += fullBulkSize;
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
 	                    bulkBuffer.clear();
+	                    totalConsumed += fullBulkSize;
 	                }
-	                totalConsumed += commandSize;
+//	                totalConsumed += commandSize;
 	                continue;
 	            }
 
@@ -198,6 +204,7 @@ public class Main {
 	        offset + "\r\n";
 	    out.write(ack.getBytes("UTF-8"));
 	    out.flush();
+	    System.out.println("Sent REPLCONF ACK: " + offset);
 	}
 
 	private static String readLine(InputStream in) throws IOException {
