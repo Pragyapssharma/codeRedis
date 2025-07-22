@@ -146,6 +146,9 @@ public class Main {
 	                "REPLCONF".equalsIgnoreCase(arr[0]) &&
 	                "GETACK".equalsIgnoreCase(arr[1]) &&
 	                "*".equals(arr[2])) {
+	            	
+	            	System.out.println("Received REPLCONF GETACK *");
+	            	System.out.println("Sending ACK with offset: " + cumulativeOffset);
 
 	            	String offsetStr = Long.toString(cumulativeOffset);
 	            	String ack = "*3\r\n" +
