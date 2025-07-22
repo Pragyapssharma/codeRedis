@@ -173,18 +173,19 @@ public class Main {
 	            }
 
 	            if (arr != null) {
+	                int fullArraySize = end - start;
+
 	                if (arr.length == 3 &&
 	                    "REPLCONF".equalsIgnoreCase(arr[0]) &&
 	                    "GETACK".equalsIgnoreCase(arr[1]) &&
 	                    "*".equals(arr[2])) {
 	                    respondWithAck(out);
-	                    // Do NOT increment offset here
 	                } else {
-	                    cumulativeOffset += segmentSize;
+	                    cumulativeOffset += fullArraySize;
 	                    processCommand(cmd);
 	                }
 
-	                totalConsumed += segmentSize;
+	                totalConsumed += fullArraySize;
 	                continue;
 	            }
 
