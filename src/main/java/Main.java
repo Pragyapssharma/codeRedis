@@ -147,6 +147,7 @@ public class Main {
 //					cumulativeOffset += commandSize;
 
 					if (bulkBuffer.size() == 3) {
+						int commandSizeTotal = endPos - (startPos - 2 * commandSize);
 						String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
 						if ("REPLCONF".equalsIgnoreCase(a0) && "GETACK".equalsIgnoreCase(a1) && "*".equals(a2)) {
 
@@ -157,8 +158,8 @@ public class Main {
 							out.flush();
 							System.out.println("Sent ACK (bulk mode) to master.");
 						 } else {
-					            processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
-					            cumulativeOffset += commandSize;
+							 cumulativeOffset += commandSizeTotal;
+						        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 					        }
 
 						bulkBuffer.clear();
