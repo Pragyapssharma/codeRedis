@@ -5,7 +5,8 @@ import java.util.*;
 public class Main {
 	private static ServerSocket serverSocket;
 	private static List<String> bulkBuffer = new ArrayList<>();
-	private static long replicationOffset = 0;
+//	private static long replicationOffset = 0;
+	private static long cumulativeOffset = 0;
 
 	public static void main(String[] args) {
 		String masterHost = null;
@@ -132,19 +133,21 @@ public class Main {
 	        int lastPos = 0;
 
 	        while (parser.hasNext()) {
+	        	
+	        	int startPos = parser.getPos();
 	            RespCommand cmd = parser.next();
-	            lastPos = parser.getPos();
-	            replicationOffset = lastPos;
+	            int endPos = parser.getPos();
+	            int commandSize = endPos - startPos;
 
 	            String[] arr = cmd.getArray();
-	            String val = cmd.getValue();
+//	            String val = cmd.getValue();
 
 	            if (arr != null && arr.length == 3 &&
 	                "REPLCONF".equalsIgnoreCase(arr[0]) &&
 	                "GETACK".equalsIgnoreCase(arr[1]) &&
 	                "*".equals(arr[2])) {
 
-	            	String offsetStr = Long.toString(replicationOffset);
+	            	String offsetStr = Long.toString(cumulativeOffset);
 	            	String ack = "*3\r\n" +
 	            	             "$8\r\nREPLCONF\r\n" +
 	            	             "$3\r\nACK\r\n" +
@@ -154,36 +157,38 @@ public class Main {
 	                out.flush();
 	                System.out.println("Sent ACK to master.");
 
-	                bulkBuffer.clear();
+//	                bulkBuffer.clear();
 	                continue;
 	            }
+	            cumulativeOffset += commandSize;
+	            processCommand(cmd);
 
-	            if (arr != null) {
-	                bulkBuffer.clear();
-	                processCommand(cmd);
-	                continue;
-	            }
-
-	            if (val != null) {
-	                bulkBuffer.add(val);
-
-	                if (bulkBuffer.size() == 3) {
-	                    String[] complete = bulkBuffer.toArray(new String[0]);
-	                    bulkBuffer.clear();
-
-	                    if ("REPLCONF".equalsIgnoreCase(complete[0]) &&
-	                        "GETACK".equalsIgnoreCase(complete[1]) &&
-	                        "*".equals(complete[2])) {
-
-	                        String ackResponse = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
-	                        out.write(ackResponse.getBytes("UTF-8"));
-	                        out.flush();
-	                        System.out.println("Sent ACK to master.");
-	                    } else {
-	                        processCommand(new RespCommand(complete));
-	                    }
-	                }
-	            }
+//	            if (arr != null) {
+//	                bulkBuffer.clear();
+//	                processCommand(cmd);
+//	                continue;
+//	            }
+//
+//	            if (val != null) {
+//	                bulkBuffer.add(val);
+//
+//	                if (bulkBuffer.size() == 3) {
+//	                    String[] complete = bulkBuffer.toArray(new String[0]);
+//	                    bulkBuffer.clear();
+//
+//	                    if ("REPLCONF".equalsIgnoreCase(complete[0]) &&
+//	                        "GETACK".equalsIgnoreCase(complete[1]) &&
+//	                        "*".equals(complete[2])) {
+//
+//	                        String ackResponse = "*3\r\n$8\r\nREPLCONF\r\n$3\r\nACK\r\n$1\r\n0\r\n";
+//	                        out.write(ackResponse.getBytes("UTF-8"));
+//	                        out.flush();
+//	                        System.out.println("Sent ACK to master.");
+//	                    } else {
+//	                        processCommand(new RespCommand(complete));
+//	                    }
+//	                }
+//	            }
 	        }
 
 	        return lastPos;
