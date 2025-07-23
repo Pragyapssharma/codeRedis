@@ -119,7 +119,9 @@ public class Main {
 						int processed = processStream(data, out);
 						
 						if (processed == 0) {
-				            break; // No valid command left in buffer
+							System.err.println("Warning: discarding buffer due to no valid RESP.");
+						    buffer.reset();
+				            break;
 				        }
 
 						if (processed > 0 && processed <= data.length) {
