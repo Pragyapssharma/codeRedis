@@ -160,7 +160,10 @@ public class Main {
 	                    if ("REPLCONF".equalsIgnoreCase(a0)
 	                     && "GETACK".equalsIgnoreCase(a1)
 	                     && "*".equals(a2)) {
+	                    	
+	                    	cumulativeOffset += fullBulkSize;
 	                        respondWithAck(out);
+	                        
 	                    } else {
 	                        cumulativeOffset += fullBulkSize;
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
@@ -179,7 +182,10 @@ public class Main {
 	                    "REPLCONF".equalsIgnoreCase(arr[0]) &&
 	                    "GETACK".equalsIgnoreCase(arr[1]) &&
 	                    "*".equals(arr[2])) {
+	                	
+	                	cumulativeOffset += fullArraySize;
 	                    respondWithAck(out);
+	                    
 	                } else {
 	                    cumulativeOffset += fullArraySize;
 	                    processCommand(cmd);
