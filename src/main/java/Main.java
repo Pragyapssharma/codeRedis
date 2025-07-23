@@ -118,7 +118,8 @@ public class Main {
 							buffer.reset();
 							buffer.write(data, processed, data.length - processed);
 						} else {
-							buffer.reset();
+							System.err.println("Warning: Dropping invalid buffer due to parsing failure.");
+						    buffer.reset();
 						}
 					}
 				} catch (IOException e) {
