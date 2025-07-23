@@ -134,6 +134,8 @@ public class Main {
 	        RespParser parser = new RespParser(data);
 	        int totalConsumed = 0;
 	        int bulkStart = 0;
+	        
+	        System.err.println("Raw bytes: " + Arrays.toString(data));
 
 	        while (parser.hasNext()) {
 	        	int start = parser.getRawBytesRead();
