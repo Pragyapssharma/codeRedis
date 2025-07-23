@@ -161,8 +161,8 @@ public class Main {
 	                     && "GETACK".equalsIgnoreCase(a1)
 	                     && "*".equals(a2)) {
 	                    	
-	                    	cumulativeOffset += fullBulkSize;
 	                        respondWithAck(out);
+	                        cumulativeOffset += fullBulkSize;
 	                        
 	                    } else {
 	                        cumulativeOffset += fullBulkSize;
@@ -183,8 +183,8 @@ public class Main {
 	                    "GETACK".equalsIgnoreCase(arr[1]) &&
 	                    "*".equals(arr[2])) {
 	                	
-	                	cumulativeOffset += fullArraySize;
 	                    respondWithAck(out);
+	                    cumulativeOffset += fullArraySize;
 	                    
 	                } else {
 	                    cumulativeOffset += fullArraySize;
