@@ -154,6 +154,15 @@ public class Main {
 	                	bulkStart = totalConsumed;
 	                }
 	                bulkBuffer.add(val);
+	                
+	                if (bulkBuffer.size() == 1 && "PING".equalsIgnoreCase(bulkBuffer.get(0))) {
+	                    int fullBulkSize = end - start;
+	                    cumulativeOffset += fullBulkSize;
+	                    processCommand(new RespCommand(new String[] { "PING" }));
+	                    bulkBuffer.clear();
+	                    totalConsumed += fullBulkSize;
+	                    continue;
+	                }
 
 	                if (bulkBuffer.size() == 3) {
 	                    String a0 = bulkBuffer.get(0),
