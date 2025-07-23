@@ -146,7 +146,7 @@ public class Main {
 
 	            if (val != null) {
 	                if (bulkBuffer.isEmpty()) {
-	                    bulkStart = start;
+	                	bulkStart = totalConsumed;
 	                }
 	                bulkBuffer.add(val);
 
@@ -155,7 +155,7 @@ public class Main {
 	                           a1 = bulkBuffer.get(1),
 	                           a2 = bulkBuffer.get(2);
 
-	                    int fullBulkSize = end - bulkStart;
+	                    int fullBulkSize = end - start;
 
 	                    if ("REPLCONF".equalsIgnoreCase(a0)
 	                     && "GETACK".equalsIgnoreCase(a1)
