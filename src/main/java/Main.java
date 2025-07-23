@@ -112,14 +112,24 @@ public class Main {
 					int read;
 					while ((read = in.read(tmp)) != -1) {
 						buffer.write(tmp, 0, read);
+						
+						while (true) {
+
 						byte[] data = buffer.toByteArray();
 						int processed = processStream(data, out);
+						
+						if (processed == 0) {
+				            break; // No valid command left in buffer
+				        }
+
 						if (processed > 0 && processed <= data.length) {
 							buffer.reset();
 							buffer.write(data, processed, data.length - processed);
 						} else {
 							System.err.println("Warning: Dropping invalid buffer due to parsing failure.");
 						    buffer.reset();
+						    break;
+						}
 						}
 					}
 				} catch (IOException e) {
