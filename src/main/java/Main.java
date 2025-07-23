@@ -213,6 +213,9 @@ public class Main {
 	            cumulativeOffset += segmentSize;
 	            processCommand(cmd);
 	            totalConsumed += segmentSize;
+	            
+	            System.out.println("Processed command: " + Arrays.toString(arr != null ? arr : bulkBuffer.toArray(new String[0])) +
+	                    " | Bytes: " + segmentSize);
 	        }
 
 	        return totalConsumed;
