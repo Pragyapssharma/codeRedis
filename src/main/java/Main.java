@@ -117,6 +117,8 @@ public class Main {
 						if (processed > 0 && processed <= data.length) {
 							buffer.reset();
 							buffer.write(data, processed, data.length - processed);
+						} else {
+							buffer.reset();
 						}
 					}
 				} catch (IOException e) {
