@@ -146,6 +146,12 @@ public class Main {
 
 	private static int processStream(byte[] data, OutputStream out) {
 	    try {
+	    	if (data.length == 0) return 0;
+	    	char prefix = (char) data[0];
+	    	if (prefix != '+' && prefix != '-' && prefix != ':' && prefix != '$' && prefix != '*') {
+	    	    System.err.println("Invalid RESP prefix: '" + prefix + "'. Discarding buffer.");
+	    	    return 0;
+	    	}
 	        RespParser parser = new RespParser(data);
 	        int totalConsumed = 0;
 	        int bulkStart = 0;
