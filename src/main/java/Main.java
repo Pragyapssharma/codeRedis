@@ -136,48 +136,73 @@ public class Main {
 
 
 	private static int processStream(byte[] data, OutputStream out) {
-		try {
-			if (data.length == 0) return 0;
-			RespParser parser = new RespParser(data);
-			int totalConsumed = 0;
+	    try {
+	        if (data.length == 0) return 0;
+	        RespParser parser = new RespParser(data);
+	        int totalConsumed = 0;
 
-			while (parser.hasNext()) {
-				int start = parser.getRawBytesRead();
-				RespCommand cmd = parser.next();
-				int end = parser.getRawBytesRead();
-				int segmentSize = end - start;
+	        while (parser.hasNext()) {
+	            int start = parser.getRawBytesRead();
+	            RespCommand cmd = parser.next();
+	            int end = parser.getRawBytesRead();
+	            int segmentSize = end - start;
 
-			 String[] arr = cmd.getArray();
-			 String val = cmd.getValue();
-			 boolean isAck = false;
+	            String[] arr = cmd.getArray();
+	            String val = cmd.getValue();
+	            boolean isAck = false;
 
-			 if (val != null) {
-				bulkBuffer.add(val);
-				if (bulkBuffer.size() == 3) {
-					String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
-					isAck = "REPLCONF".equalsIgnoreCase(a0) && "GETACK".equalsIgnoreCase(a1) && "*".equals(a2);
-					if (isAck) respondWithAck(out);
-					else processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
-					bulkBuffer.clear();
-				}
-			 } else if (arr != null) {
-				isAck = arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0]) &&
-						"GETACK".equalsIgnoreCase(arr[1]) && "*".equals(arr[2]);
-				if (isAck) respondWithAck(out);
-				else processCommand(cmd);
-			 } else {
-				processCommand(cmd);
-			 }
+	            // Handle bulk commands (e.g. each part of REPLCONF GETACK)
+	            if (val != null) {
+	                bulkBuffer.add(val);
+	                if (bulkBuffer.size() == 3) {
+	                    String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
+	                    isAck = "REPLCONF".equalsIgnoreCase(a0) &&
+	                            "GETACK".equalsIgnoreCase(a1) &&
+	                            "*".equals(a2);
 
-			 cumulativeOffset += segmentSize; // Update only after responding!
-			 totalConsumed += segmentSize;
-			}
-			return totalConsumed;
-		} catch (Exception e) {
-			System.err.println("Failed to process command: " + e.getMessage());
-			bulkBuffer.clear();
-			return 0;
-		}
+	                    if (isAck) {
+	                        respondWithAck(out);             
+	                    } else {
+	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
+	                    }
+
+	                    cumulativeOffset += segmentSize;     
+	                    totalConsumed += segmentSize;
+	                    bulkBuffer.clear();
+	                    continue;
+	                }
+	            }
+
+	            // Handle array commands
+	            else if (arr != null) {
+	                isAck = arr.length == 3 &&
+	                        "REPLCONF".equalsIgnoreCase(arr[0]) &&
+	                        "GETACK".equalsIgnoreCase(arr[1]) &&
+	                        "*".equals(arr[2]);
+
+	                if (isAck) {
+	                    respondWithAck(out);          
+	                } else {
+	                    processCommand(cmd);
+	                }
+
+	                cumulativeOffset += segmentSize; 
+	                totalConsumed += segmentSize;
+	                continue;
+	            }
+
+	            // Handle other types of commands (e.g. PING, SET)
+	            processCommand(cmd);
+	            cumulativeOffset += segmentSize;
+	            totalConsumed += segmentSize;
+	        }
+
+	        return totalConsumed;
+	    } catch (Exception e) {
+	        System.err.println("Failed to process command: " + e.getMessage());
+	        bulkBuffer.clear();
+	        return 0;
+	    }
 	}
 	
 	private static void respondWithAck(OutputStream out) throws IOException {
