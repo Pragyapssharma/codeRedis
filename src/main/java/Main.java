@@ -6,7 +6,6 @@ public class Main {
 	private static ServerSocket serverSocket;
 	private static List<String> bulkBuffer = new ArrayList<>();
 	private static long cumulativeOffset = 0;
-	private static int bulkStartPos = 0;
 
 	public static void main(String[] args) {
 		String masterHost = null;
@@ -46,8 +45,6 @@ public class Main {
 			} else {
 				System.out.println("No RDB file found, starting with empty DB");
 			}
-		} else {
-			System.out.println("No RDB config provided, starting with empty DB");
 		}
 
 		// Start replication thread if in replica mode
@@ -81,19 +78,17 @@ public class Main {
 			OutputStream out = masterSocket.getOutputStream();
 
 			send(out, "*1\r\n$4\r\nPING\r\n");
-			System.out.println("Sent PING to master");
-			System.out.println("Received from master: " + readLine(in));
+			readLine(in);
 
 			String portStr = Integer.toString(Config.getPort());
-			send(out, "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" + portStr.length() + "\r\n" + portStr
-					+ "\r\n");
-			System.out.println("Received from master: " + readLine(in));
+			send(out, "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" + portStr.length() + "\r\n" + portStr + "\r\n");
+			readLine(in);
 
 			send(out, "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n");
-			System.out.println("Received from master: " + readLine(in));
+			readLine(in);
 
 			send(out, "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n");
-			System.out.println("Received: " + readLine(in));
+			readLine(in);
 			readLine(in);
 
 			String rdbHeader = readLine(in);
@@ -112,26 +107,21 @@ public class Main {
 					int read;
 					while ((read = in.read(tmp)) != -1) {
 						buffer.write(tmp, 0, read);
-						
 						while (true) {
+							byte[] data = buffer.toByteArray();
+							int processed = processStream(data, out);
 
-						byte[] data = buffer.toByteArray();
-						int processed = processStream(data, out);
-						
-						if (processed == 0) {
-							System.err.println("Warning: discarding buffer due to no valid RESP.");
-						    buffer.reset();
-				            break;
-				        }
-
-						if (processed > 0 && processed <= data.length) {
-							buffer.reset();
-							buffer.write(data, processed, data.length - processed);
-						} else {
-							System.err.println("Warning: Dropping invalid buffer due to parsing failure.");
-						    buffer.reset();
-						    break;
-						}
+							if (processed == 0) {
+								buffer.reset();
+								break;
+							}
+							if (processed > 0 && processed <= data.length) {
+								buffer.reset();
+								buffer.write(data, processed, data.length - processed);
+							} else {
+								buffer.reset();
+								break;
+							}
 						}
 					}
 				} catch (IOException e) {
@@ -144,69 +134,50 @@ public class Main {
 		}
 	}
 
+
 	private static int processStream(byte[] data, OutputStream out) {
-	    try {
-	        if (data.length == 0) return 0;
-	        RespParser parser = new RespParser(data);
-	        int totalConsumed = 0;
+		try {
+			if (data.length == 0) return 0;
+			RespParser parser = new RespParser(data);
+			int totalConsumed = 0;
 
-	        while (parser.hasNext()) {
-	            int start = parser.getRawBytesRead();
-	            RespCommand cmd = parser.next();
-	            int end = parser.getRawBytesRead();
-	            int segmentSize = end - start;
+			while (parser.hasNext()) {
+				int start = parser.getRawBytesRead();
+				RespCommand cmd = parser.next();
+				int end = parser.getRawBytesRead();
+				int segmentSize = end - start;
 
-	            String[] arr = cmd.getArray();
-	            String val = cmd.getValue();
+			 String[] arr = cmd.getArray();
+			 String val = cmd.getValue();
+			 boolean isAck = false;
 
-	            boolean isReplconfGetack = false;
+			 if (val != null) {
+				bulkBuffer.add(val);
+				if (bulkBuffer.size() == 3) {
+					String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
+					isAck = "REPLCONF".equalsIgnoreCase(a0) && "GETACK".equalsIgnoreCase(a1) && "*".equals(a2);
+					if (isAck) respondWithAck(out);
+					else processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
+					bulkBuffer.clear();
+				}
+			 } else if (arr != null) {
+				isAck = arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0]) &&
+						"GETACK".equalsIgnoreCase(arr[1]) && "*".equals(arr[2]);
+				if (isAck) respondWithAck(out);
+				else processCommand(cmd);
+			 } else {
+				processCommand(cmd);
+			 }
 
-	            if (val != null) {
-	                bulkBuffer.add(val);
-	                if (bulkBuffer.size() == 3) {
-	                    String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
-	                    isReplconfGetack = "REPLCONF".equalsIgnoreCase(a0) &&
-	                                       "GETACK".equalsIgnoreCase(a1) &&
-	                                       "*".equals(a2);
-
-	                    if (isReplconfGetack) {
-	                        respondWithAck(out); // respond using current offset BEFORE updating
-	                    } else {
-	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
-	                    }
-	                    bulkBuffer.clear();
-	                }
-	            } else if (arr != null) {
-	                isReplconfGetack = arr.length == 3 &&
-	                                   "REPLCONF".equalsIgnoreCase(arr[0]) &&
-	                                   "GETACK".equalsIgnoreCase(arr[1]) &&
-	                                   "*".equals(arr[2]);
-	                if (isReplconfGetack) {
-	                    respondWithAck(out); // respond before updating
-	                } else {
-	                    processCommand(cmd);
-	                }
-	            } else {
-	                processCommand(cmd);
-	            }
-
-	            // Update offset only AFTER processing (so GETACK is excluded from its own ACK)
-	            cumulativeOffset += segmentSize;
-	            totalConsumed += segmentSize;
-
-	            if (!isReplconfGetack) {
-	                System.out.println("Processed command: " +
-	                    Arrays.toString(arr != null ? arr : bulkBuffer.toArray(new String[0])) +
-	                    " | Bytes: " + segmentSize);
-	            }
-	        }
-
-	        return totalConsumed;
-	    } catch (Exception e) {
-	        System.err.println("Failed to process command: " + e.getMessage());
-	        bulkBuffer.clear();
-	        return 0;
-	    }
+			 cumulativeOffset += segmentSize; // Update only after responding!
+			 totalConsumed += segmentSize;
+			}
+			return totalConsumed;
+		} catch (Exception e) {
+			System.err.println("Failed to process command: " + e.getMessage());
+			bulkBuffer.clear();
+			return 0;
+		}
 	}
 	
 	private static void respondWithAck(OutputStream out) throws IOException {
@@ -243,14 +214,11 @@ public class Main {
 
 	private static void processCommand(RespCommand command) {
 		String[] elements = command.getArray();
-		if (elements != null && elements.length > 0) {
-			String cmd = elements[0].toUpperCase();
-			if ("SET".equals(cmd)) {
-				try {
-					ClientHandler.handleSet(Arrays.asList(elements), null, true);
-				} catch (IOException e) {
-					System.err.println("Error applying propagated SET: " + e.getMessage());
-				}
+		if (elements != null && elements.length > 0 && "SET".equalsIgnoreCase(elements[0])) {
+			try {
+				ClientHandler.handleSet(Arrays.asList(elements), null, true);
+			} catch (IOException e) {
+				System.err.println("Error applying propagated SET: " + e.getMessage());
 			}
 		}
 	}
