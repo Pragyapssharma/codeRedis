@@ -150,7 +150,6 @@ public class Main {
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
 
-	            // Bulk strings - accumulate until full command (3 parts)
 	            if (val != null) {
 	                bulkBuffer.add(val);
 	                if (bulkBuffer.size() == 3) {
@@ -159,71 +158,43 @@ public class Main {
 	                                    "GETACK".equalsIgnoreCase(a1) &&
 	                                    "*".equals(a2);
 
-	                    System.out.println("--------------------------------------------------");
-	                    System.out.println("Parsed bulk command: [" + a0 + ", " + a1 + ", " + a2 + "]");
-	                    System.out.println("Current cumulativeOffset BEFORE command: " + cumulativeOffset);
-
 	                    if (isAck) {
-	                        System.out.println("➡️ REPLCONF GETACK * detected (bulk)");
-	                        respondWithAck(out);  // Respond with current cumulativeOffset before update
+	                        // respond using current offset BEFORE updating cumulativeOffset
+	                        respondWithAck(out);
 	                    } else {
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
 
 	                    bulkBuffer.clear();
-
-	                    cumulativeOffset += segmentSize;  // Update AFTER responding once per full command
+	                    cumulativeOffset += segmentSize;
 	                    totalConsumed += segmentSize;
-
-	                    System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
-	                    System.out.println("--------------------------------------------------");
 
 	                    continue;
 	                } else {
-	                    // Haven't reached full 3 parts yet - do NOT update cumulativeOffset yet
-	                    return 0;  // Wait for more data before consuming bytes
+	                    // need to read more bulk strings
+	                    return totalConsumed;
 	                }
-	            }
-
-	            // Full array commands
-	            else if (arr != null) {
+	            } else if (arr != null) {
 	                boolean isAck = arr.length == 3 &&
 	                                "REPLCONF".equalsIgnoreCase(arr[0]) &&
 	                                "GETACK".equalsIgnoreCase(arr[1]) &&
 	                                "*".equals(arr[2]);
 
-	                System.out.println("--------------------------------------------------");
-	                System.out.println("Parsed array command: " + Arrays.toString(arr));
-	                System.out.println("Current cumulativeOffset BEFORE command: " + cumulativeOffset);
-
 	                if (isAck) {
-	                    System.out.println("➡️ REPLCONF GETACK * detected (array)");
-	                    respondWithAck(out);  // Respond with current cumulativeOffset before update
+	                    respondWithAck(out);
 	                } else {
 	                    processCommand(cmd);
 	                }
 
 	                cumulativeOffset += segmentSize;
 	                totalConsumed += segmentSize;
-
-	                System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
-	                System.out.println("--------------------------------------------------");
-
 	                continue;
 	            }
 
-	            // Other types of commands
-	            System.out.println("--------------------------------------------------");
-	            System.out.println("Parsed other command: " + cmd);
-	            System.out.println("Current cumulativeOffset BEFORE command: " + cumulativeOffset);
-
+	            // For other commands
 	            processCommand(cmd);
-
 	            cumulativeOffset += segmentSize;
 	            totalConsumed += segmentSize;
-
-	            System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
-	            System.out.println("--------------------------------------------------");
 	        }
 
 	        return totalConsumed;
