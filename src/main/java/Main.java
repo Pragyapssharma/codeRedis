@@ -146,20 +146,12 @@ public class Main {
 
 	private static int processStream(byte[] data, OutputStream out) {
 	    try {
-	    	if (data.length == 0) return 0;
-	    	char prefix = (char) data[0];
-	    	if (prefix != '+' && prefix != '-' && prefix != ':' && prefix != '$' && prefix != '*') {
-	    	    System.err.println("Invalid RESP prefix: '" + prefix + "'. Discarding buffer.");
-	    	    return 0;
-	    	}
+	        if (data.length == 0) return 0;
 	        RespParser parser = new RespParser(data);
 	        int totalConsumed = 0;
-	        int bulkStart = 0;
-	        
-	        System.err.println("Raw bytes: " + Arrays.toString(data));
 
 	        while (parser.hasNext()) {
-	        	int start = parser.getRawBytesRead();
+	            int start = parser.getRawBytesRead();
 	            RespCommand cmd = parser.next();
 	            int end = parser.getRawBytesRead();
 	            int segmentSize = end - start;
@@ -167,73 +159,46 @@ public class Main {
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
 
+	            boolean isReplconfGetack = false;
+
 	            if (val != null) {
-	                if (bulkBuffer.isEmpty()) {
-	                	bulkStart = totalConsumed;
-	                }
 	                bulkBuffer.add(val);
-	                
-	                if (bulkBuffer.size() == 1 && "PING".equalsIgnoreCase(bulkBuffer.get(0))) {
-	                    int fullBulkSize = end - start;
-	                    cumulativeOffset += fullBulkSize;
-	                    processCommand(new RespCommand(new String[] { "PING" }));
-	                    bulkBuffer.clear();
-	                    totalConsumed += fullBulkSize;
-	                    continue;
-	                }
-
 	                if (bulkBuffer.size() == 3) {
-	                    String a0 = bulkBuffer.get(0),
-	                           a1 = bulkBuffer.get(1),
-	                           a2 = bulkBuffer.get(2);
+	                    String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
+	                    isReplconfGetack = "REPLCONF".equalsIgnoreCase(a0) &&
+	                                       "GETACK".equalsIgnoreCase(a1) &&
+	                                       "*".equals(a2);
 
-	                    int fullBulkSize = end - start;
-
-	                    if ("REPLCONF".equalsIgnoreCase(a0)
-	                     && "GETACK".equalsIgnoreCase(a1)
-	                     && "*".equals(a2)) {
-	                    	
-	                        respondWithAck(out);
-	                        cumulativeOffset += fullBulkSize;
-	                        
+	                    if (isReplconfGetack) {
+	                        respondWithAck(out); // respond using current offset BEFORE updating
 	                    } else {
-	                        cumulativeOffset += fullBulkSize;
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
-
 	                    bulkBuffer.clear();
-	                    totalConsumed += fullBulkSize;
 	                }
-	                continue;
-	            }
-
-	            if (arr != null) {
-	                int fullArraySize = end - start;
-
-	                if (arr.length == 3 &&
-	                    "REPLCONF".equalsIgnoreCase(arr[0]) &&
-	                    "GETACK".equalsIgnoreCase(arr[1]) &&
-	                    "*".equals(arr[2])) {
-	                	
-	                    respondWithAck(out);
-	                    cumulativeOffset += fullArraySize;
-	                    
+	            } else if (arr != null) {
+	                isReplconfGetack = arr.length == 3 &&
+	                                   "REPLCONF".equalsIgnoreCase(arr[0]) &&
+	                                   "GETACK".equalsIgnoreCase(arr[1]) &&
+	                                   "*".equals(arr[2]);
+	                if (isReplconfGetack) {
+	                    respondWithAck(out); // respond before updating
 	                } else {
-	                    cumulativeOffset += fullArraySize;
 	                    processCommand(cmd);
 	                }
-
-	                totalConsumed += fullArraySize;
-	                continue;
+	            } else {
+	                processCommand(cmd);
 	            }
 
-
+	            // Update offset only AFTER processing (so GETACK is excluded from its own ACK)
 	            cumulativeOffset += segmentSize;
-	            processCommand(cmd);
 	            totalConsumed += segmentSize;
-	            
-	            System.out.println("Processed command: " + Arrays.toString(arr != null ? arr : bulkBuffer.toArray(new String[0])) +
+
+	            if (!isReplconfGetack) {
+	                System.out.println("Processed command: " +
+	                    Arrays.toString(arr != null ? arr : bulkBuffer.toArray(new String[0])) +
 	                    " | Bytes: " + segmentSize);
+	            }
 	        }
 
 	        return totalConsumed;
