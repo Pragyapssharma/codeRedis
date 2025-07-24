@@ -151,29 +151,29 @@ public class Main {
 	            String val = cmd.getValue();
 	            boolean isAck = false;
 
-	            // Handle bulk commands (e.g. each part of REPLCONF GETACK)
+	            // Handle bulk-buffered input
 	            if (val != null) {
 	                bulkBuffer.add(val);
 	                if (bulkBuffer.size() == 3) {
 	                    String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
-	                    isAck = "REPLCONF".equalsIgnoreCase(a0) &&
-	                            "GETACK".equalsIgnoreCase(a1) &&
-	                            "*".equals(a2);
+	                    isAck = "REPLCONF".equalsIgnoreCase(a0)
+	                         && "GETACK".equalsIgnoreCase(a1)
+	                         && "*".equals(a2);
 
 	                    if (isAck) {
-	                        respondWithAck(out);             
+	                        respondWithAck(out);
 	                    } else {
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
 
-	                    cumulativeOffset += segmentSize;     
-	                    totalConsumed += segmentSize;
 	                    bulkBuffer.clear();
+	                    cumulativeOffset += segmentSize;
+	                    totalConsumed += segmentSize;
 	                    continue;
 	                }
 	            }
 
-	            // Handle array commands
+	            // Handle array-based input
 	            else if (arr != null) {
 	                isAck = arr.length == 3 &&
 	                        "REPLCONF".equalsIgnoreCase(arr[0]) &&
@@ -181,17 +181,17 @@ public class Main {
 	                        "*".equals(arr[2]);
 
 	                if (isAck) {
-	                    respondWithAck(out);          
+	                    respondWithAck(out);
 	                } else {
 	                    processCommand(cmd);
 	                }
 
-	                cumulativeOffset += segmentSize; 
+	                cumulativeOffset += segmentSize;
 	                totalConsumed += segmentSize;
 	                continue;
 	            }
 
-	            // Handle other types of commands (e.g. PING, SET)
+	            // Handle other types
 	            processCommand(cmd);
 	            cumulativeOffset += segmentSize;
 	            totalConsumed += segmentSize;
