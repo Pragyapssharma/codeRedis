@@ -149,52 +149,68 @@ public class Main {
 
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
-	            boolean isAck = false;
 
-	            // Handle bulk-buffered input
+	            // 🧠 DEBUG: Raw byte segment info
+	            System.out.println("--------------------------------------------------");
+	            System.out.println("Parsed command bytes: start=" + start + ", end=" + end + ", segmentSize=" + segmentSize);
+	            System.out.println("Current cumulativeOffset BEFORE command: " + cumulativeOffset);
+
 	            if (val != null) {
 	                bulkBuffer.add(val);
 	                if (bulkBuffer.size() == 3) {
 	                    String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
-	                    isAck = "REPLCONF".equalsIgnoreCase(a0)
-	                         && "GETACK".equalsIgnoreCase(a1)
-	                         && "*".equals(a2);
+	                    boolean isAck = "REPLCONF".equalsIgnoreCase(a0) &&
+	                                    "GETACK".equalsIgnoreCase(a1) &&
+	                                    "*".equals(a2);
 
+	                    System.out.println("Parsed bulk command: [" + a0 + ", " + a1 + ", " + a2 + "]");
 	                    if (isAck) {
-	                        respondWithAck(out);
+	                        System.out.println("➡️ REPLCONF GETACK * detected (bulk)");
+	                        respondWithAck(out);  // ✅ respond using cumulativeOffset before updating
 	                    } else {
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
 
 	                    bulkBuffer.clear();
-	                    cumulativeOffset += segmentSize;
+	                    cumulativeOffset += segmentSize;  // ✅ update AFTER responding
 	                    totalConsumed += segmentSize;
+
+	                    System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
+	                    System.out.println("--------------------------------------------------");
 	                    continue;
 	                }
 	            }
 
-	            // Handle array-based input
 	            else if (arr != null) {
-	                isAck = arr.length == 3 &&
-	                        "REPLCONF".equalsIgnoreCase(arr[0]) &&
-	                        "GETACK".equalsIgnoreCase(arr[1]) &&
-	                        "*".equals(arr[2]);
+	                boolean isAck = arr.length == 3 &&
+	                                "REPLCONF".equalsIgnoreCase(arr[0]) &&
+	                                "GETACK".equalsIgnoreCase(arr[1]) &&
+	                                "*".equals(arr[2]);
 
+	                System.out.println("Parsed array command: " + Arrays.toString(arr));
 	                if (isAck) {
-	                    respondWithAck(out);
+	                    System.out.println("➡️ REPLCONF GETACK * detected (array)");
+	                    respondWithAck(out);  // ✅ respond using current offset
 	                } else {
 	                    processCommand(cmd);
 	                }
 
 	                cumulativeOffset += segmentSize;
 	                totalConsumed += segmentSize;
+
+	                System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
+	                System.out.println("--------------------------------------------------");
 	                continue;
 	            }
 
-	            // Handle other types
+	            // Other command types (e.g. PING, SET)
 	            processCommand(cmd);
 	            cumulativeOffset += segmentSize;
 	            totalConsumed += segmentSize;
+
+	            System.out.println("Processed command: " + cmd);
+	            System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
+	            System.out.println("--------------------------------------------------");
 	        }
 
 	        return totalConsumed;
