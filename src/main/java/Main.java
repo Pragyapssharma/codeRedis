@@ -135,7 +135,6 @@ public class Main {
 		}
 	}
 	
-	
 	private static int processStream(byte[] data, OutputStream out) {
 	    try {
 	        if (data.length == 0) return 0;
@@ -151,48 +150,38 @@ public class Main {
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
 
-	            if (val != null) {
-	                bulkBuffer.add(val);
-	                if (bulkBuffer.size() == 3) {
-	                    String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
-	                    boolean isAck = "REPLCONF".equalsIgnoreCase(a0) &&
-	                                    "GETACK".equalsIgnoreCase(a1) &&
-	                                    "*".equals(a2);
-
-	                    if (isAck) {
-	                        // respond using current offset BEFORE updating cumulativeOffset
-	                        respondWithAck(out);
-	                    } else {
-	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
-	                    }
-
-	                    bulkBuffer.clear();
-	                    cumulativeOffset += segmentSize;
-	                    totalConsumed += segmentSize;
-
-	                    continue;
-	                } else {
-	                    // need to read more bulk strings
-	                    return totalConsumed;
-	                }
-	            } else if (arr != null) {
-	                boolean isAck = arr.length == 3 &&
-	                                "REPLCONF".equalsIgnoreCase(arr[0]) &&
-	                                "GETACK".equalsIgnoreCase(arr[1]) &&
-	                                "*".equals(arr[2]);
-
-	                if (isAck) {
-	                    respondWithAck(out);
-	                } else {
-	                    processCommand(cmd);
-	                }
-
+	            // Check if the command is REPLCONF GETACK *
+	            if (arr != null && arr.length == 3 && "REPLCONF".equalsIgnoreCase(arr[0]) && "GETACK".equalsIgnoreCase(arr[1]) && "*".equals(arr[2])) {
+	                System.out.println("➡️ REPLCONF GETACK * detected");
+	                respondWithAck(out);
 	                cumulativeOffset += segmentSize;
 	                totalConsumed += segmentSize;
 	                continue;
 	            }
 
-	            // For other commands
+	            // Handle bulk buffer commands
+	            if (val != null) {
+	                bulkBuffer.add(val);
+	                if (bulkBuffer.size() == 3) {
+	                    String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
+	                    if ("REPLCONF".equalsIgnoreCase(a0) && "GETACK".equalsIgnoreCase(a1) && "*".equals(a2)) {
+	                        System.out.println("➡️ REPLCONF GETACK * detected (bulk)");
+	                        respondWithAck(out);
+	                        bulkBuffer.clear();
+	                        cumulativeOffset += segmentSize;
+	                        totalConsumed += segmentSize;
+	                        continue;
+	                    } else {
+	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
+	                        bulkBuffer.clear();
+	                    }
+	                }
+	                cumulativeOffset += segmentSize;
+	                totalConsumed += segmentSize;
+	                continue;
+	            }
+
+	            // Process other commands
 	            processCommand(cmd);
 	            cumulativeOffset += segmentSize;
 	            totalConsumed += segmentSize;
@@ -206,14 +195,6 @@ public class Main {
 	    }
 	}
 	
-	private static void respondWithAck(OutputStream out) throws IOException {
-	    String response = "+OK\r\n";
-	    out.write(response.getBytes(StandardCharsets.UTF_8));
-	    out.flush();
-	}
-
-
-
 //	private static int processStream(byte[] data, OutputStream out) {
 //	    try {
 //	        if (data.length == 0) return 0;
@@ -300,18 +281,18 @@ public class Main {
 //	    }
 //	}
 	
-//	private static void respondWithAck(OutputStream out) throws IOException {
-//	    String offset = Long.toString(cumulativeOffset);
-//	    String ack =
-//	        "*3\r\n" +
-//	        "$8\r\nREPLCONF\r\n" +
-//	        "$3\r\nACK\r\n" +
-//	        "$" + offset.length() + "\r\n" +
-//	        offset + "\r\n";
-//	    out.write(ack.getBytes("UTF-8"));
-//	    out.flush();
-//	    System.out.println("Sent REPLCONF ACK: " + offset);
-//	}
+	private static void respondWithAck(OutputStream out) throws IOException {
+	    String offset = Long.toString(cumulativeOffset);
+	    String ack =
+	        "*3\r\n" +
+	        "$8\r\nREPLCONF\r\n" +
+	        "$3\r\nACK\r\n" +
+	        "$" + offset.length() + "\r\n" +
+	        offset + "\r\n";
+	    out.write(ack.getBytes("UTF-8"));
+	    out.flush();
+	    System.out.println("Sent REPLCONF ACK: " + offset);
+	}
 
 	private static String readLine(InputStream in) throws IOException {
 		StringBuilder sb = new StringBuilder();
