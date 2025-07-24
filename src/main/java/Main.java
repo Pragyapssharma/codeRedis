@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class Main {
@@ -204,6 +205,12 @@ public class Main {
 	        return 0;
 	    }
 	}
+	
+	private static void respondWithAck(OutputStream out) throws IOException {
+	    String response = "+OK\r\n";
+	    out.write(response.getBytes(StandardCharsets.UTF_8));
+	    out.flush();
+	}
 
 
 
@@ -293,18 +300,18 @@ public class Main {
 //	    }
 //	}
 	
-	private static void respondWithAck(OutputStream out) throws IOException {
-	    String offset = Long.toString(cumulativeOffset);
-	    String ack =
-	        "*3\r\n" +
-	        "$8\r\nREPLCONF\r\n" +
-	        "$3\r\nACK\r\n" +
-	        "$" + offset.length() + "\r\n" +
-	        offset + "\r\n";
-	    out.write(ack.getBytes("UTF-8"));
-	    out.flush();
-	    System.out.println("Sent REPLCONF ACK: " + offset);
-	}
+//	private static void respondWithAck(OutputStream out) throws IOException {
+//	    String offset = Long.toString(cumulativeOffset);
+//	    String ack =
+//	        "*3\r\n" +
+//	        "$8\r\nREPLCONF\r\n" +
+//	        "$3\r\nACK\r\n" +
+//	        "$" + offset.length() + "\r\n" +
+//	        offset + "\r\n";
+//	    out.write(ack.getBytes("UTF-8"));
+//	    out.flush();
+//	    System.out.println("Sent REPLCONF ACK: " + offset);
+//	}
 
 	private static String readLine(InputStream in) throws IOException {
 		StringBuilder sb = new StringBuilder();
