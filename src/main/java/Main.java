@@ -134,15 +134,12 @@ public class Main {
 		}
 	}
 	
+	
 	private static int processStream(byte[] data, OutputStream out) {
 	    try {
 	        if (data.length == 0) return 0;
 	        RespParser parser = new RespParser(data);
 	        int totalConsumed = 0;
-	        long segmentStartOffset = cumulativeOffset;
-
-	        // Track bytes for multi-part bulk REPLCONF GETACK
-	        List<Integer> partSizes = new ArrayList<>();
 
 	        while (parser.hasNext()) {
 	            int start = parser.getRawBytesRead();
@@ -153,69 +150,78 @@ public class Main {
 	            String[] arr = cmd.getArray();
 	            String val = cmd.getValue();
 
-	            System.out.println("--------------------------------------------------");
-	            System.out.println("Parsed command bytes: start=" + start + ", end=" + end + ", size=" + segmentSize);
-	            System.out.println("Current cumulativeOffset BEFORE command: " + cumulativeOffset);
-
+	            // Bulk strings - accumulate until full command (3 parts)
 	            if (val != null) {
 	                bulkBuffer.add(val);
-	                partSizes.add(segmentSize);  // track size for each part
-
 	                if (bulkBuffer.size() == 3) {
 	                    String a0 = bulkBuffer.get(0), a1 = bulkBuffer.get(1), a2 = bulkBuffer.get(2);
 	                    boolean isAck = "REPLCONF".equalsIgnoreCase(a0) &&
 	                                    "GETACK".equalsIgnoreCase(a1) &&
 	                                    "*".equals(a2);
 
-	                    System.out.println("Parsed bulk command: [\"" + a0 + "\", \"" + a1 + "\", \"" + a2 + "\"]");
-	                    int totalCommandSize = partSizes.stream().mapToInt(Integer::intValue).sum();
+	                    System.out.println("--------------------------------------------------");
+	                    System.out.println("Parsed bulk command: [" + a0 + ", " + a1 + ", " + a2 + "]");
+	                    System.out.println("Current cumulativeOffset BEFORE command: " + cumulativeOffset);
 
 	                    if (isAck) {
-	                        System.out.println("➡️ REPLCONF GETACK * detected (bulk group)");
-	                        System.out.println("Sending ACK using cumulativeOffset = " + cumulativeOffset);
-	                        respondWithAck(out);                  // respond BEFORE counting this command
+	                        System.out.println("➡️ REPLCONF GETACK * detected (bulk)");
+	                        respondWithAck(out);  // Respond with current cumulativeOffset before update
 	                    } else {
 	                        processCommand(new RespCommand(bulkBuffer.toArray(new String[0])));
 	                    }
 
-	                    cumulativeOffset += totalCommandSize;    // update AFTER processing
-	                    totalConsumed += totalCommandSize;
+	                    bulkBuffer.clear();
+
+	                    cumulativeOffset += segmentSize;  // Update AFTER responding once per full command
+	                    totalConsumed += segmentSize;
+
 	                    System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
 	                    System.out.println("--------------------------------------------------");
 
-	                    bulkBuffer.clear();
-	                    partSizes.clear();
 	                    continue;
+	                } else {
+	                    // Haven't reached full 3 parts yet - do NOT update cumulativeOffset yet
+	                    return 0;  // Wait for more data before consuming bytes
 	                }
 	            }
 
+	            // Full array commands
 	            else if (arr != null) {
 	                boolean isAck = arr.length == 3 &&
 	                                "REPLCONF".equalsIgnoreCase(arr[0]) &&
 	                                "GETACK".equalsIgnoreCase(arr[1]) &&
 	                                "*".equals(arr[2]);
 
+	                System.out.println("--------------------------------------------------");
 	                System.out.println("Parsed array command: " + Arrays.toString(arr));
+	                System.out.println("Current cumulativeOffset BEFORE command: " + cumulativeOffset);
+
 	                if (isAck) {
 	                    System.out.println("➡️ REPLCONF GETACK * detected (array)");
-	                    System.out.println("Sending ACK using cumulativeOffset = " + cumulativeOffset);
-	                    respondWithAck(out);
+	                    respondWithAck(out);  // Respond with current cumulativeOffset before update
 	                } else {
 	                    processCommand(cmd);
 	                }
 
 	                cumulativeOffset += segmentSize;
 	                totalConsumed += segmentSize;
+
 	                System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
 	                System.out.println("--------------------------------------------------");
+
 	                continue;
 	            }
 
-	            // Other command types (PING, SET, etc.)
+	            // Other types of commands
+	            System.out.println("--------------------------------------------------");
+	            System.out.println("Parsed other command: " + cmd);
+	            System.out.println("Current cumulativeOffset BEFORE command: " + cumulativeOffset);
+
 	            processCommand(cmd);
+
 	            cumulativeOffset += segmentSize;
 	            totalConsumed += segmentSize;
-	            System.out.println("Processed command: " + cmd);
+
 	            System.out.println("Updated cumulativeOffset AFTER command: " + cumulativeOffset);
 	            System.out.println("--------------------------------------------------");
 	        }
@@ -227,6 +233,7 @@ public class Main {
 	        return 0;
 	    }
 	}
+
 
 
 //	private static int processStream(byte[] data, OutputStream out) {
